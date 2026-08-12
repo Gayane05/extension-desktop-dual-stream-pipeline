@@ -1,0 +1,16 @@
+# local tooling / session artifacts
+.superpowers/
+.playwright-mcp/
+.claude/
+
+# local planning docs — not part of the deliverable
+docs/superpowers/
+chrome-extension-cpp-desktop-dual-stream-pipeline.pdf
+
+# build outputs
+build/
+desktop/build/
+CMakeUserPresets.json
+
+# models (downloaded via scripts/download-model.ps1)
+desktop/models/
