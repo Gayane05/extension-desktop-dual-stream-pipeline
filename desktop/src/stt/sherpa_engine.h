@@ -10,6 +10,14 @@ typedef struct SherpaOnnxOnlineStream SherpaOnnxOnlineStream;
 
 namespace dsp {
 
+// Threading: start() must complete before any feed() calls begin (feeder
+// threads are spawned only after start() returns). feed() is safe to call
+// from multiple threads concurrently (the internal mutex serializes decode
+// across them). stop() must not run concurrently with feed() -- callers
+// (Pipeline) join feeder threads before stopping the engine. The destructor
+// calls stop(), so the same rule applies to destruction. start() itself also
+// takes the mutex (see sherpa_engine.cpp), so the class is self-defending
+// even if that lifecycle contract is ever violated.
 class SherpaEngine : public ISttEngine {
 public:
     SherpaEngine(EngineOptions opts, TranscriptCallback cb);
@@ -21,6 +29,8 @@ public:
     std::string effectiveProvider() const override { return effectiveProvider_; }
 
 private:
+    // Private helper invoked only from start(), which already holds mu_;
+    // does not lock itself (would self-deadlock on a non-recursive mutex).
     bool createRecognizer(const std::string& provider, std::string& error);
 
     EngineOptions opts_;

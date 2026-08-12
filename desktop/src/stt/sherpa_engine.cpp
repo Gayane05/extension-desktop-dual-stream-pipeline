@@ -73,6 +73,12 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
 }
 
 bool SherpaEngine::start(std::string& error) {
+    // Takes mu_ even though the lifecycle contract (see header) guarantees no
+    // concurrent feed()/stop() during start(): this makes the class
+    // self-defending rather than contract-reliant, at zero cost (init-time
+    // only). createRecognizer() is private and only ever called from here, so
+    // it must not lock mu_ itself -- it would self-deadlock.
+    std::lock_guard lk(mu_);
     if (!createRecognizer(opts_.provider, error)) {
         if (opts_.provider != "cpu") {
             std::string cpuErr;
@@ -107,6 +113,9 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     std::string text = (r && r->text) ? r->text : "";
     SherpaOnnxDestroyOnlineRecognizerResult(r);
 
+    // NOTE: cb_ runs while holding mu_ -- it must not call back into this
+    // engine (TranscriptModel::apply only takes its own unrelated lock, so
+    // this is safe today, but a future callback must not call feed()/stop()).
     if (SherpaOnnxOnlineStreamIsEndpoint(rec_, stream)) {
         if (!text.empty()) cb_({s, text, true, tsMs});
         SherpaOnnxOnlineStreamReset(rec_, stream);
