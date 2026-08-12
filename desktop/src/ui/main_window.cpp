@@ -14,6 +14,7 @@
 #include "app/pipeline.h"
 #include "app/transcript_model.h"
 #include "stt/stt_engine.h"
+#include "ui/save_transcript.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
@@ -110,7 +111,10 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
     const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);   // blue - You
     const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);   // orange - Others
     const ImVec4 dimColor(0.6f, 0.6f, 0.6f, 1.0f);
+    const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
     bool autoscroll = true;
+    std::string saveStatus;         // empty when nothing to report
+    double saveStatusUntil = 0.0;   // ImGui::GetTime() deadline; cleared after
     bool done = false;
     while (!done) {
         MSG msg;
@@ -144,10 +148,22 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
         if (ImGui::Button("Clear")) model.clear();
         ImGui::SameLine();
         if (ImGui::Button("Save transcript")) {
-            auto text = model.toText();
-            FILE* f = nullptr;
-            fopen_s(&f, "transcript.txt", "wb");
-            if (f) { fwrite(text.data(), 1, text.size(), f); fclose(f); }
+            std::string err;
+            if (saveTranscriptFile("transcript.txt", model.toText(), err)) {
+                saveStatus = "saved transcript.txt";
+            } else {
+                saveStatus = "save failed: " + err;
+            }
+            saveStatusUntil = ImGui::GetTime() + 5.0;
+        }
+        if (!saveStatus.empty()) {
+            if (ImGui::GetTime() < saveStatusUntil) {
+                ImGui::SameLine();
+                const bool failed = saveStatus.rfind("save failed", 0) == 0;
+                ImGui::TextColored(failed ? errColor : dimColor, "%s", saveStatus.c_str());
+            } else {
+                saveStatus.clear();
+            }
         }
         ImGui::SameLine();
         ImGui::Checkbox("Autoscroll", &autoscroll);

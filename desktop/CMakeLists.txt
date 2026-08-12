@@ -96,6 +96,8 @@ target_sources(dsp_core PRIVATE
     src/stt/sherpa_engine.cpp
     src/stt/deepgram_engine.h
     src/stt/deepgram_engine.cpp
+    src/ui/save_transcript.h
+    src/ui/save_transcript.cpp
 )
 set_target_properties(dsp_core PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(dsp_core PUBLIC src)
@@ -113,6 +115,7 @@ add_executable(dsp_tests
     tests/test_sherpa_engine.cpp
     tests/test_deepgram_parse.cpp
     tests/test_wav.cpp
+    tests/test_save_transcript.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 dsp_copy_runtime_dlls(dsp_tests)
