@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <thread>
+#include <future>
+#include <chrono>
 #include "core/spsc_ring.h"
 
 using dsp::SpscRing;
@@ -38,4 +40,19 @@ TEST(SpscRing, ThreadedSmoke) {
     while (auto v = q.popWait()) { EXPECT_EQ(*v, expected++); }
     producer.join();
     EXPECT_EQ(expected, kN);
+}
+
+TEST(SpscRing, CloseWakesBlockedConsumer) {
+    SpscRing<int> q(4);
+    std::atomic<bool> started{false};
+    auto fut = std::async(std::launch::async, [&] {
+        started = true;
+        return q.popWait();   // parks on empty ring
+    });
+    while (!started) std::this_thread::yield();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // let it park
+    q.close();
+    ASSERT_EQ(fut.wait_for(std::chrono::seconds(5)), std::future_status::ready)
+        << "close() failed to wake the blocked consumer";
+    EXPECT_FALSE(fut.get().has_value());
 }

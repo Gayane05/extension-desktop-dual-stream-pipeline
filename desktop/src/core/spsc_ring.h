@@ -34,7 +34,11 @@ public:
 
     void close() {
         closed_.store(true, std::memory_order_release);
-        sem_.release(64);  // over-release so a waiting consumer always wakes
+        // Over-release semaphore with headroom (64 is arbitrary); one credit suffices for
+        // the single consumer, but extra permits are harmless because tryPop validates
+        // against real head/tail state. Ensures blocked consumer wakes even if spurious
+        // wakeups are possible.
+        sem_.release(64);
     }
 
     bool closed() const { return closed_.load(std::memory_order_acquire); }
