@@ -1,7 +1,6 @@
 #include "app/config.h"
 
 #include <charconv>
-#include <cstring>
 #include <string_view>
 
 namespace dsp {

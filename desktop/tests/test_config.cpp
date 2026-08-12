@@ -39,3 +39,40 @@ TEST(Config, RejectsBadValues) {
     EXPECT_FALSE(parse({"--port"}, err));  // missing value
     EXPECT_FALSE(parse({"--unknown-flag"}, err));
 }
+
+TEST(Config, RejectsOutOfRangePorts) {
+    std::string err;
+    EXPECT_FALSE(parse({"--port", "0"}, err));
+    EXPECT_FALSE(parse({"--port", "-1"}, err));
+    EXPECT_FALSE(parse({"--port", "65536"}, err));
+    EXPECT_TRUE(parse({"--port", "65535"}, err));   // boundary: valid
+    EXPECT_TRUE(parse({"--port", "1"}, err));       // boundary: valid
+}
+
+TEST(Config, RejectsPartialNumericPort) {
+    std::string err;
+    EXPECT_FALSE(parse({"--port", "8080x"}, err));  // trailing garbage: full-string parse branch
+}
+
+TEST(Config, RejectsMissingValuesForAllValuedFlags) {
+    std::string err;
+    EXPECT_FALSE(parse({"--engine"}, err));
+    EXPECT_FALSE(parse({"--provider"}, err));
+    EXPECT_FALSE(parse({"--model-dir"}, err));
+    EXPECT_FALSE(parse({"--duration"}, err));
+}
+
+TEST(Config, RejectsNonNumericDuration) {
+    std::string err;
+    EXPECT_FALSE(parse({"--duration", "abc"}, err));
+}
+
+TEST(Config, LenientDurationParsing) {
+    std::string err;
+    // std::stod parses leading numeric portion and does NOT throw
+    // for "12abc", so it silently accepts as 12.0. This is documented
+    // behavior difference from port flag's strict full-string parse.
+    auto c = parse({"--duration", "12abc"}, err);
+    EXPECT_TRUE(c);
+    EXPECT_DOUBLE_EQ(c->durationSec, 12.0);
+}
