@@ -22,8 +22,14 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
         f.read(id, 4); f.read(reinterpret_cast<char*>(&size), 4);
         if (!f) break;
         if (std::strncmp(id, "fmt ", 4) == 0) {
+            // A canonical fmt chunk is 16 bytes (bits-per-sample sits at
+            // offset 14); a shorter chunk would make the memcpy below read
+            // past the end of buf. Reject it explicitly instead of reading
+            // out of bounds.
+            if (size < 16) { error = "fmt chunk too small"; return std::nullopt; }
             std::vector<char> buf(size);
             f.read(buf.data(), size);
+            if (!f) { error = "truncated fmt chunk"; return std::nullopt; }
             std::memcpy(&fmt, buf.data(), 2);
             std::memcpy(&channels, buf.data() + 2, 2);
             uint32_t rate; std::memcpy(&rate, buf.data() + 4, 4);
@@ -37,6 +43,7 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
             }
             out.samples.resize(size / 2);
             f.read(reinterpret_cast<char*>(out.samples.data()), size);
+            if (!f) { error = "truncated data chunk"; return std::nullopt; }
             return out;
         } else {
             f.seekg(size + (size % 2), std::ios::cur);  // chunks are word-aligned

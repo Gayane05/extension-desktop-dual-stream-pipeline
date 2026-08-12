@@ -33,6 +33,10 @@ private:
     std::atomic<uint64_t> dropped_[2]{};
     std::atomic<uint64_t> lastFrameCount_[2]{};
     std::atomic<bool> connected_{false};
+    // Set before server_->stop() in Pipeline::stop() so pushStatus() (called
+    // from ix connection threads via onHello/onClientGone) stops touching
+    // server_ before it is reset from the main thread. See pushStatus().
+    std::atomic<bool> stopping_{false};
     std::unique_ptr<WsServer> server_;
     std::thread workers_[2];
 };

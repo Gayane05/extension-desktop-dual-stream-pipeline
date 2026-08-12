@@ -1,5 +1,8 @@
 #include "app/pipeline.h"
 
+#include <cstdio>
+#include <exception>
+
 #include "core/protocol.h"
 
 namespace dsp {
@@ -13,8 +16,13 @@ bool Pipeline::start(std::string& error) {
     server_ = std::make_unique<WsServer>(cfg_.port, WsServer::Callbacks{
         .onAudio = [this](AudioFrame&& f) {
             const int i = static_cast<int>(f.stream);
+            const StreamId sid = f.stream;  // capture before tryPush moves f
             lastFrameCount_[i]++;
-            if (!rings_[i].tryPush(std::move(f))) dropped_[i]++;
+            if (!rings_[i].tryPush(std::move(f))) {
+                if (dropped_[i]++ == 0)
+                    std::fprintf(stderr, "warning: dropping frames for %s (ring full)\n",
+                                 streamName(sid));
+            }
         },
         .onHello = [this](const HelloInfo&) { connected_ = true; pushStatus(); },
         // NOTE: onClientGone may fire twice for one disconnect (an explicit
@@ -32,11 +40,33 @@ bool Pipeline::start(std::string& error) {
 void Pipeline::workerLoop(StreamId s) {
     auto& ring = rings_[static_cast<int>(s)];
     while (auto frame = ring.popWait()) {
-        engine_.feed(s, frame->samples.data(), frame->samples.size(), frame->captureTsMs);
+        // A crash inside the engine must not take the whole process down
+        // silently mid-worker-loop; log and stop this lane's worker rather
+        // than letting an exception escape a detached-looking thread.
+        try {
+            engine_.feed(s, frame->samples.data(), frame->samples.size(), frame->captureTsMs);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "engine feed error (%s): %s\n", streamName(s), e.what());
+            return;
+        } catch (...) {
+            std::fprintf(stderr, "engine feed error (%s): unknown exception\n", streamName(s));
+            return;
+        }
     }
 }
 
 void Pipeline::pushStatus() {
+    // stopping_ is set (by stop(), below) before server_->stop() runs, and
+    // pushStatus() is only ever invoked from WsServer's connection-thread
+    // callbacks (onHello/onClientGone) -- never from the main thread. Bailing
+    // out here once stopping_ is visible means no new broadcast() call can
+    // start touching server_ after stop() begins tearing it down; any
+    // broadcast() already in flight still completes safely because
+    // WsServer::stop() joins its connection threads before stop() resets
+    // server_ (ixwebsocket's ws->stop() blocks until the connection thread
+    // exits). This narrows the use-after-free window to practical zero
+    // without needing a mutex around every broadcast.
+    if (stopping_.load()) return;
     if (server_)
         server_->broadcast(buildStatusJson(engine_.name(), engine_.effectiveProvider(),
                                            streamState(StreamId::Mic),
@@ -44,6 +74,7 @@ void Pipeline::pushStatus() {
 }
 
 void Pipeline::stop() {
+    stopping_.store(true);
     if (server_) server_->stop();
     for (auto& r : rings_) r.close();
     for (auto& w : workers_) if (w.joinable()) w.join();

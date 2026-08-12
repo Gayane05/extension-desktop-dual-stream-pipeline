@@ -121,3 +121,65 @@ TEST(WsServer, BadHelloGetsErrorAndClose) {
     server.stop();
     ix::uninitNetSystem();
 }
+
+// The SPSC rings behind onAudio require a single producer per stream. A
+// second client that sends hello while one is already active must be
+// rejected (error + close) without disturbing the first client's stream.
+TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming) {
+    ix::initNetSystem();
+    std::atomic<int> framesA{0};
+    std::atomic<int> helloCount{0};
+    std::atomic<int> goneCount{0};
+    WsServer server(18768, {
+        .onAudio = [&](AudioFrame&& f) { if (f.stream == StreamId::Mic) framesA++; },
+        .onHello = [&](const HelloInfo&) { helloCount++; },
+        .onClientGone = [&] { goneCount++; },
+    });
+    std::string err;
+    ASSERT_TRUE(server.start(err)) << err;
+
+    ix::WebSocket a;
+    a.setUrl("ws://127.0.0.1:18768");
+    std::atomic<bool> aOpen{false};
+    a.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
+        if (msg->type == ix::WebSocketMessageType::Open) aOpen = true;
+    });
+    a.start();
+    ASSERT_TRUE(waitFor([&] { return aOpen.load(); }));
+    a.sendText(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
+    EXPECT_TRUE(waitFor([&] { return helloCount.load() == 1; }));
+
+    ix::WebSocket b;
+    b.setUrl("ws://127.0.0.1:18768");
+    std::atomic<bool> bOpen{false}, bGotError{false}, bClosed{false};
+    b.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
+        if (msg->type == ix::WebSocketMessageType::Open) bOpen = true;
+        else if (msg->type == ix::WebSocketMessageType::Message && !msg->binary &&
+                 msg->str.find("\"type\":\"error\"") != std::string::npos) bGotError = true;
+        else if (msg->type == ix::WebSocketMessageType::Close) bClosed = true;
+    });
+    b.disableAutomaticReconnection();
+    b.start();
+    ASSERT_TRUE(waitFor([&] { return bOpen.load(); }));
+    b.sendText(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
+    EXPECT_TRUE(waitFor([&] { return bGotError.load() && bClosed.load(); }));
+    b.stop();
+
+    // B's rejection/close must not have been reported as A's onClientGone,
+    // and must not have prevented a second hello from A (still the sole
+    // active client, so helloCount should still read 1).
+    EXPECT_EQ(helloCount.load(), 1);
+    EXPECT_EQ(goneCount.load(), 0);
+
+    // A keeps streaming after B was rejected.
+    std::vector<int16_t> pcm(1600, 0);
+    auto frame = serializeBinaryFrame(StreamId::Mic, 42.0, pcm.data(), pcm.size());
+    a.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));
+    EXPECT_TRUE(waitFor([&] { return framesA.load() >= 1; }));
+
+    a.sendText(R"({"type":"bye"})");
+    EXPECT_TRUE(waitFor([&] { return goneCount.load() >= 1; }));
+    a.stop();
+    server.stop();
+    ix::uninitNetSystem();
+}

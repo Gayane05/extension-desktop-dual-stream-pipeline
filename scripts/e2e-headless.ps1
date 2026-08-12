@@ -16,12 +16,23 @@ $proc = Start-Process -FilePath (Join-Path $exeDir "transcriber.exe") `
     -ArgumentList "--headless", "--duration", "40", "--engine", $Engine, "--model-dir", "$PSScriptRoot\..\desktop\models" `
     -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:TEMP "e2e-stderr.log") `
     -PassThru -NoNewWindow
-Start-Sleep -Seconds 3   # let the engine load
-& (Join-Path $exeDir "wav_client.exe") (Join-Path $samples "mic.wav") (Join-Path $samples "tab.wav")
-$proc.WaitForExit()
+try {
+    Start-Sleep -Seconds 3   # let the engine load
+    & (Join-Path $exeDir "wav_client.exe") (Join-Path $samples "mic.wav") (Join-Path $samples "tab.wav")
+    # Give transcriber up to 60s beyond wav_client returning (it should exit
+    # on its own at --duration 40) before we consider it hung.
+    if (-not $proc.WaitForExit(60000)) {
+        Write-Host "transcriber.exe did not exit within 60s; killing it" -ForegroundColor Yellow
+    }
+} finally {
+    if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+}
 $lines = Get-Content $out
 Write-Host "--- transcript ---"; $lines | Write-Host
-$micOk = $lines | Where-Object { $_ -match '"stream":"mic"' -and $_ -match 'hear' }
+# "hear" appears in BOTH sample sentences (mic: "...hear me clearly...";
+# tab: "...we can hear you..."), so it cannot distinguish lane leakage from a
+# correct result. Assert on words unique to each sentence instead.
+$micOk = $lines | Where-Object { $_ -match '"stream":"mic"' -and $_ -match 'clearly' }
 $tabOk = $lines | Where-Object { $_ -match '"stream":"tab"' -and $_ -match 'meeting' }
 if ($micOk -and $tabOk) { Write-Host "E2E PASS" -ForegroundColor Green; exit 0 }
 Write-Host "E2E FAIL (mic:$([bool]$micOk) tab:$([bool]$tabOk))" -ForegroundColor Red

@@ -47,7 +47,9 @@ static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev) {
     w.Key("stream"); w.String(dsp::streamName(ev.stream));
     w.Key("final"); w.Bool(ev.isFinal);
     w.Key("ts"); w.Double(ev.tsMs);
-    w.Key("text"); w.String(ev.text.c_str());
+    // Use the (data, length) overload rather than c_str(): text containing an
+    // embedded NUL would otherwise be silently truncated at the first one.
+    w.Key("text"); w.String(ev.text.data(), static_cast<rapidjson::SizeType>(ev.text.size()));
     w.EndObject();
     return sb.GetString();
 }

@@ -20,11 +20,17 @@ bool WsServer::start(std::string& error) {
                 std::lock_guard<std::mutex> lk(helloMu_);
                 helloSeen_[state->getId()] = false;
             } else if (msg->type == ix::WebSocketMessageType::Close) {
+                bool wasRejected = false;
                 {
                     std::lock_guard<std::mutex> lk(helloMu_);
                     helloSeen_.erase(state->getId());
+                    if (activeId_ == state->getId()) activeId_.clear();
+                    wasRejected = rejected_.erase(state->getId()) > 0;
                 }
-                if (cb_.onClientGone) cb_.onClientGone();
+                // Suppress onClientGone for a connection we ourselves closed
+                // for being a second client: the real (active) client hasn't
+                // gone anywhere, so Pipeline must not see this as a disconnect.
+                if (!wasRejected && cb_.onClientGone) cb_.onClientGone();
             } else if (msg->type == ix::WebSocketMessageType::Message) {
                 if (!msg->binary) {
                     if (auto hello = parseHello(msg->str)) {
@@ -33,9 +39,29 @@ bool WsServer::start(std::string& error) {
                             ws.close();
                             return;
                         }
+                        // Single-producer enforcement: the SPSC rings behind
+                        // onAudio require exactly one producer per stream.
+                        // Accept this hello only if no other client is
+                        // currently active (or this connection already is
+                        // the active one, e.g. a duplicate hello); otherwise
+                        // reject it without disturbing the active client.
+                        bool accepted = false;
                         {
                             std::lock_guard<std::mutex> lk(helloMu_);
-                            helloSeen_[state->getId()] = true;
+                            if (activeId_.empty() || activeId_ == state->getId()) {
+                                activeId_ = state->getId();
+                                helloSeen_[state->getId()] = true;
+                                accepted = true;
+                            }
+                        }
+                        if (!accepted) {
+                            ws.sendText(buildErrorJson("another client is already connected"));
+                            {
+                                std::lock_guard<std::mutex> lk(helloMu_);
+                                rejected_.insert(state->getId());
+                            }
+                            ws.close();
+                            return;
                         }
                         if (cb_.onHello) cb_.onHello(*hello);
                     } else if (isBye(msg->str)) {
