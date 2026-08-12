@@ -1,0 +1,56 @@
+// desktop/tests/test_protocol.cpp
+#include <gtest/gtest.h>
+#include "core/protocol.h"
+
+using namespace dsp;
+
+TEST(Protocol, RoundTripBinaryFrame) {
+    std::vector<int16_t> pcm{100, -200, 32767, -32768};
+    auto bytes = serializeBinaryFrame(StreamId::Tab, 1723456789123.5, pcm.data(), pcm.size());
+    ASSERT_EQ(bytes.size(), 9 + pcm.size() * 2);
+    auto frame = parseBinaryFrame(bytes.data(), bytes.size());
+    ASSERT_TRUE(frame.has_value());
+    EXPECT_EQ(frame->stream, StreamId::Tab);
+    EXPECT_DOUBLE_EQ(frame->captureTsMs, 1723456789123.5);
+    EXPECT_EQ(frame->samples, pcm);
+}
+
+TEST(Protocol, RejectsTruncatedAndBadTag) {
+    std::vector<int16_t> pcm{1};
+    auto ok = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());     // shorter than header
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());    // odd payload length
+    ok[0] = 7;                                                    // unknown tag
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), ok.size()).has_value());
+}
+
+TEST(Protocol, EmptyPayloadIsValid) {
+    auto bytes = serializeBinaryFrame(StreamId::Mic, 2.0, nullptr, 0);
+    auto frame = parseBinaryFrame(bytes.data(), bytes.size());
+    ASSERT_TRUE(frame.has_value());
+    EXPECT_TRUE(frame->samples.empty());
+}
+
+TEST(Protocol, ParsesHello) {
+    auto h = parseHello(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
+    ASSERT_TRUE(h.has_value());
+    EXPECT_EQ(h->version, 1);
+    EXPECT_EQ(h->sampleRate, 16000);
+    EXPECT_EQ(h->channels, 1);
+    EXPECT_EQ(h->format, "s16le");
+}
+
+TEST(Protocol, RejectsNonHelloAndGarbage) {
+    EXPECT_FALSE(parseHello(R"({"type":"bye"})").has_value());
+    EXPECT_FALSE(parseHello("not json at all").has_value());
+    EXPECT_TRUE(isBye(R"({"type":"bye"})"));
+    EXPECT_FALSE(isBye(R"({"type":"hello"})"));
+}
+
+TEST(Protocol, BuildsStatusJson) {
+    auto s = buildStatusJson("sherpa", "cpu", "streaming", "idle");
+    EXPECT_NE(s.find("\"type\":\"status\""), std::string::npos);
+    EXPECT_NE(s.find("\"engine\":\"sherpa\""), std::string::npos);
+    EXPECT_NE(s.find("\"mic\":\"streaming\""), std::string::npos);
+    EXPECT_NE(s.find("\"tab\":\"idle\""), std::string::npos);
+}

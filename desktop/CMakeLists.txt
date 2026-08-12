@@ -14,6 +14,8 @@ add_library(dsp_core STATIC)
 target_sources(dsp_core PRIVATE
     src/core/version.h
     src/core/version.cpp
+    src/core/protocol.h
+    src/core/protocol.cpp
 )
 set_target_properties(dsp_core PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(dsp_core PUBLIC src)
@@ -22,6 +24,7 @@ target_link_libraries(dsp_core PUBLIC rapidjson ixwebsocket::ixwebsocket)
 enable_testing()
 add_executable(dsp_tests
     tests/test_smoke.cpp
+    tests/test_protocol.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 include(GoogleTest)
