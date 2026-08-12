@@ -4,6 +4,7 @@ const CHUNK_SAMPLES = 1600; // 100 ms @ 16 kHz
 
 let ws = null, ctx = null, tracks = [], reconnectTimer = null, active = false;
 let wsUrl = "";
+let reconnectAttempts = 0;
 
 function status(patch) {
   chrome.runtime.sendMessage({ type: "offscreen-status", patch }).catch(() => {});
@@ -40,6 +41,7 @@ function connectWs() {
   ws = new WebSocket(wsUrl);
   ws.binaryType = "arraybuffer";
   ws.onopen = () => {
+    reconnectAttempts = 0;
     status({ ws: "connected", error: null });
     ws.send(JSON.stringify({ type: "hello", version: 1, sampleRate: 16000, channels: 1, format: "s16le", streams: ["mic", "tab"] }));
   };
@@ -53,7 +55,11 @@ function connectWs() {
   };
   ws.onclose = () => {
     status({ ws: "disconnected", desktop: null });
-    if (active) reconnectTimer = setTimeout(connectWs, Math.min(8000, (reconnectTimer ? 2000 : 500)));
+    if (active) {
+      reconnectAttempts++;
+      const delay = Math.min(8000, 500 * Math.pow(2, reconnectAttempts - 1));
+      reconnectTimer = setTimeout(connectWs, delay);
+    }
   };
   ws.onerror = () => {};
 }
@@ -97,6 +103,7 @@ function stop() {
   active = false;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
+  reconnectAttempts = 0;
   if (ws) { try { ws.send(JSON.stringify({ type: "bye" })); } catch {} ws.close(); ws = null; }
   tracks.forEach((t) => t.stop());
   tracks = [];
