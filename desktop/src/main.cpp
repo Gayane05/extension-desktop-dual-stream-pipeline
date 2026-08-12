@@ -6,6 +6,12 @@
 #include <memory>
 #include <thread>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -68,9 +74,23 @@ int main(int argc, char** argv) {
             std::fflush(out);
         }
     });
-    if (!engine->start(err)) { std::fprintf(stderr, "engine error: %s\n", err.c_str()); return 3; }
+    if (!engine->start(err)) {
+        std::fprintf(stderr, "engine error: %s\n", err.c_str());
+#ifdef _WIN32
+        // Console-only output is easy to miss when the app was launched by
+        // double-click (no attached console). Surface the exact error (e.g.
+        // the missing-model download command) in a message box too, but only
+        // when we'd otherwise have opened a window -- headless runs (CI, the
+        // E2E script) must stay console-only.
+        if (!cfg->headless) {
+            MessageBoxA(nullptr, err.c_str(), "Dual-Stream Transcriber - engine failed to start",
+                        MB_OK | MB_ICONERROR);
+        }
+#endif
+        return 3;
+    }
 
-    dsp::Pipeline pipeline(*cfg, *engine, model);
+    dsp::Pipeline pipeline(*cfg, *engine);
     if (!pipeline.start(err)) { std::fprintf(stderr, "server error: %s\n", err.c_str()); return 4; }
     std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n",
                  cfg->port, engine->name().c_str(), engine->effectiveProvider().c_str());
@@ -79,9 +99,17 @@ int main(int argc, char** argv) {
         std::signal(SIGINT, onSignal);
         auto deadline = std::chrono::steady_clock::now() +
                         std::chrono::duration<double>(cfg->durationSec);
+        // Status otherwise only pushes on hello/clientGone, which leaves a
+        // long-lived headless client's view stale for the whole run. Push
+        // ~1x/second (every 10th 100ms tick) so a connected client's status
+        // (e.g. dropped-chunk counters, stream state) stays current. This
+        // goes to WS clients only (WsServer::broadcast), never to stdout, so
+        // it cannot corrupt the JSONL transcript stream the E2E script reads.
+        int tick = 0;
         while (!g_stop && (cfg->durationSec <= 0 ||
                            std::chrono::steady_clock::now() < deadline)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (++tick % 10 == 0) pipeline.pushStatus();
         }
         pipeline.stop();
         engine->stop();

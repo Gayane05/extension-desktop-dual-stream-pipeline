@@ -11,8 +11,7 @@ streaming Zipformer) runs entirely on CPU with no accounts, keys, or network cal
 inference time. CUDA/TensorRT acceleration and a Deepgram cloud backend are available as
 opt-in flags (see [GPU acceleration](#gpu-acceleration) and [Deepgram backend](#deepgram-backend)).
 
-![Two-lane transcript](docs/screenshot.png)
-<!-- TODO: screenshot pending — captured manually -->
+<!-- To add the UI screenshot: capture the running app as docs/screenshot.png and restore: ![Two-lane transcript](docs/screenshot.png) -->
 
 ## Table of contents
 
@@ -164,6 +163,7 @@ current working directory):
 ```powershell
 cd desktop
 .\build\Release\transcriber.exe
+cd ..
 ```
 
 A window opens, listening on `ws://127.0.0.1:8765`. The status bar shows the active
@@ -221,9 +221,10 @@ again in the popup.
 
 ## GPU acceleration
 
-CUDA support is a Conan option on the sherpa-onnx recipe (`SHERPA_ONNX_ENABLE_GPU`) and
-requires a locally installed **NVIDIA CUDA Toolkit** matching the onnxruntime-gpu build
-sherpa-onnx fetches. Rebuild the recipe and the app with the option enabled:
+CUDA support is a Conan option on the sherpa-onnx recipe (`cuda`, plumbed internally to the
+recipe's `SHERPA_ONNX_ENABLE_GPU` CMake flag) and requires a locally installed **NVIDIA CUDA
+Toolkit** matching the onnxruntime-gpu build sherpa-onnx fetches. Rebuild the recipe and the
+app with the option enabled:
 
 ```powershell
 cd desktop/recipes/sherpa-onnx
@@ -241,6 +242,7 @@ Then run with:
 ```powershell
 cd desktop
 .\build\Release\transcriber.exe --provider cuda
+cd ..
 ```
 
 `--provider tensorrt` is also accepted and documented here as **experimental** — it
@@ -269,6 +271,7 @@ Then run:
 ```powershell
 cd desktop
 .\build\Release\transcriber.exe --engine deepgram
+cd ..
 ```
 
 Never commit your API key. It is read only from the `DEEPGRAM_API_KEY` environment
@@ -281,6 +284,7 @@ variable, never from a config file or CLI flag.
 ```powershell
 cd desktop
 ctest --test-dir build --output-on-failure -C Release
+cd ..
 ```
 
 **Full pipeline demo without a browser**, using two synthesized WAV files and a headless
@@ -303,6 +307,7 @@ app as fake mic/tab lanes:
 ```powershell
 cd desktop
 .\build\Release\wav_client.exe <mic.wav> <tab.wav> [port]
+cd ..
 ```
 
 `port` defaults to `8765`. Point it at a windowed (non-headless) `transcriber.exe` instance

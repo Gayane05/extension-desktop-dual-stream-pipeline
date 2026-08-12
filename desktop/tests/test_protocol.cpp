@@ -1,5 +1,9 @@
 // desktop/tests/test_protocol.cpp
 #include <gtest/gtest.h>
+
+#include <cstring>
+#include <limits>
+
 #include "core/protocol.h"
 
 using namespace dsp;
@@ -22,6 +26,15 @@ TEST(Protocol, RejectsTruncatedAndBadTag) {
     EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());    // odd payload length
     ok[0] = 7;                                                    // unknown tag
     EXPECT_FALSE(parseBinaryFrame(ok.data(), ok.size()).has_value());
+}
+
+TEST(Protocol, RejectsNonFiniteCaptureTs) {
+    std::vector<int16_t> pcm{1, 2, 3};
+    auto bytes = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
+    ASSERT_TRUE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());  // sanity: valid as-is
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    std::memcpy(bytes.data() + 1, &nan, sizeof(double));  // overwrite captureTsMs bytes [1,9)
+    EXPECT_FALSE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());
 }
 
 TEST(Protocol, EmptyPayloadIsValid) {

@@ -129,6 +129,18 @@ async function start(tabStreamId, port) {
   ctx.createMediaStreamSource(micStream).connect(micNode);
   ctx.createMediaStreamSource(tabStream).connect(tabNode);
 
+  // AudioWorkletNodes with no path to the context's destination can be
+  // treated as unconnected/inactive by the audio graph and never have their
+  // process() called at all (behavior varies but is not reliable to depend
+  // on), which would silently stop audio from ever reaching sendFrame.
+  // Route both nodes through a zero-gain sink to destination: this keeps the
+  // graph "live" for both nodes without adding any audible output (on top of
+  // the separate, intentional tab-audio passthrough above).
+  const sink = new GainNode(ctx, { gain: 0 });
+  micNode.connect(sink);
+  tabNode.connect(sink);
+  sink.connect(ctx.destination);
+
   connectWs();
   status({ capture: "running", micPermission: "granted" });
 }

@@ -7,8 +7,8 @@
 
 namespace dsp {
 
-Pipeline::Pipeline(const Config& cfg, ISttEngine& engine, TranscriptModel& model)
-    : cfg_(cfg), engine_(engine), model_(model) {}
+Pipeline::Pipeline(const Config& cfg, ISttEngine& engine)
+    : cfg_(cfg), engine_(engine) {}
 
 Pipeline::~Pipeline() { stop(); }
 

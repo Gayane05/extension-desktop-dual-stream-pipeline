@@ -34,8 +34,9 @@ bool WsServer::start(std::string& error) {
             } else if (msg->type == ix::WebSocketMessageType::Message) {
                 if (!msg->binary) {
                     if (auto hello = parseHello(msg->str)) {
-                        if (hello->sampleRate != 16000 || hello->format != "s16le") {
-                            ws.sendText(buildErrorJson("unsupported format"));
+                        if (hello->version != 1 || hello->sampleRate != 16000 ||
+                            hello->format != "s16le") {
+                            ws.sendText(buildErrorJson("unsupported version or format"));
                             ws.close();
                             return;
                         }

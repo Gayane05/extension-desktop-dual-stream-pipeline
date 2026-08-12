@@ -1,5 +1,6 @@
 #include "core/protocol.h"
 
+#include <cmath>
 #include <cstring>
 
 #include <rapidjson/document.h>
@@ -16,6 +17,10 @@ std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len) {
     AudioFrame f;
     f.stream = static_cast<StreamId>(data[0]);
     std::memcpy(&f.captureTsMs, data + 1, sizeof(double));  // LE host assumed (x86-64)
+    // A NaN/Inf timestamp (malformed or malicious sender) would otherwise
+    // flow straight into lastFrameMs_/streamState() and downstream JSON
+    // (e.g. via TranscriptEvent), so reject it at the wire boundary.
+    if (!std::isfinite(f.captureTsMs)) return std::nullopt;
     f.samples.resize(payload / 2);
     if (payload > 0) std::memcpy(f.samples.data(), data + kFrameHeaderSize, payload);
     return f;

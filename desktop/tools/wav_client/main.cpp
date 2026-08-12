@@ -28,9 +28,21 @@ int main(int argc, char** argv) {
     }
     std::string err;
     auto mic = readWavPcm16Mono(argv[1], err);
-    if (!mic || mic->sampleRate != 16000) { std::fprintf(stderr, "mic wav: %s\n", err.c_str()); return 2; }
+    if (!mic) {
+        std::fprintf(stderr, "mic wav: %s\n", err.c_str());
+        return 2;
+    } else if (mic->sampleRate != 16000) {
+        std::fprintf(stderr, "mic wav: expected 16000 Hz, got %d\n", mic->sampleRate);
+        return 2;
+    }
     auto tab = readWavPcm16Mono(argv[2], err);
-    if (!tab || tab->sampleRate != 16000) { std::fprintf(stderr, "tab wav: %s\n", err.c_str()); return 2; }
+    if (!tab) {
+        std::fprintf(stderr, "tab wav: %s\n", err.c_str());
+        return 2;
+    } else if (tab->sampleRate != 16000) {
+        std::fprintf(stderr, "tab wav: expected 16000 Hz, got %d\n", tab->sampleRate);
+        return 2;
+    }
     int port = argc > 3 ? std::atoi(argv[3]) : 8765;
 
     ix::initNetSystem();

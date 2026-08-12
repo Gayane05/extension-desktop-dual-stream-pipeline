@@ -116,6 +116,10 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
     std::string saveStatus;         // empty when nothing to report
     double saveStatusUntil = 0.0;   // ImGui::GetTime() deadline; cleared after
     bool done = false;
+    // Status otherwise only pushes to the extension on hello/clientGone,
+    // which leaves the popup showing stale (or initial "idle/idle") state
+    // for the rest of a session. Push ~1x/second from the render loop too.
+    double lastStatusPush = -1.0;
     while (!done) {
         MSG msg;
         while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
@@ -128,6 +132,12 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
+
+        const double now = ImGui::GetTime();
+        if (now - lastStatusPush >= 1.0) {
+            pipeline.pushStatus();
+            lastStatusPush = now;
+        }
 
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         ImGui::SetNextWindowPos(vp->WorkPos);
