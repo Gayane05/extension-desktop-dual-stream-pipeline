@@ -33,12 +33,30 @@ class TranscriberConan(ConanFile):
         # dependency binary is resolved or built, so this fails immediately
         # with a clear message instead.
         cppstd = self.settings.get_safe("compiler.cppstd")
-        if cppstd is None or int(cppstd) < 20:
+        cppstd_num = self._cppstd_as_int(cppstd)
+        if cppstd_num is None or cppstd_num < 20:
             raise ConanInvalidConfiguration(
                 f"compiler.cppstd={cppstd} but this project requires C++20. "
                 "Use --profile:all=conan_profiles/default (see desktop/conan_profiles/default), "
                 "or pass -s compiler.cppstd=20 explicitly."
             )
+
+    @staticmethod
+    def _cppstd_as_int(cppstd):
+        # compiler.cppstd values include GNU-dialect strings (e.g. "gnu17",
+        # "gnu20") on GCC/Clang profiles, not just plain numbers like "20"
+        # (MSVC). Strip a leading "gnu" prefix before parsing so this works
+        # on Windows/macOS/Linux alike, and never raise on unparseable input
+        # -- treat it as "unknown/too old" instead of crashing.
+        if cppstd is None:
+            return None
+        text = str(cppstd)
+        if text.startswith("gnu"):
+            text = text[len("gnu"):]
+        try:
+            return int(text)
+        except ValueError:
+            return None
 
     def layout(self):
         cmake_layout(self)
