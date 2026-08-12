@@ -91,3 +91,33 @@ TEST(WsServer, AudioBeforeHelloIsDropped) {
     server.stop();
     ix::uninitNetSystem();
 }
+
+TEST(WsServer, BadHelloGetsErrorAndClose) {
+    ix::initNetSystem();
+    WsServer server(18767, {
+        .onAudio = [](AudioFrame&&) {},
+        .onHello = [](const HelloInfo&) {},
+        .onClientGone = [] {},
+    });
+    std::string err;
+    ASSERT_TRUE(server.start(err)) << err;
+
+    ix::WebSocket client;
+    client.setUrl("ws://127.0.0.1:18767");
+    std::atomic<bool> open{false}, gotError{false}, closed{false};
+    client.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
+        if (msg->type == ix::WebSocketMessageType::Open) open = true;
+        else if (msg->type == ix::WebSocketMessageType::Message && !msg->binary &&
+                 msg->str.find("\"type\":\"error\"") != std::string::npos) gotError = true;
+        else if (msg->type == ix::WebSocketMessageType::Close) closed = true;
+    });
+    client.disableAutomaticReconnection();  // so server-close doesn't trigger reconnect loops
+    client.start();
+    ASSERT_TRUE(waitFor([&] { return open.load(); }));
+
+    client.sendText(R"({"type":"hello","version":1,"sampleRate":48000,"channels":1,"format":"s16le"})");  // wrong rate
+    EXPECT_TRUE(waitFor([&] { return gotError.load() && closed.load(); }));
+    client.stop();
+    server.stop();
+    ix::uninitNetSystem();
+}
