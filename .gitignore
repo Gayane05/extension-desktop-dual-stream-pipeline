@@ -14,3 +14,6 @@ CMakeUserPresets.json
 
 # models (downloaded via scripts/download-model.ps1)
 desktop/models/
+
+# generated sample WAVs (created at runtime by scripts/make-samples.ps1)
+desktop/samples/

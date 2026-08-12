@@ -81,6 +81,10 @@ target_sources(dsp_core PRIVATE
     src/core/version.cpp
     src/core/protocol.h
     src/core/protocol.cpp
+    src/core/wav.h
+    src/core/wav.cpp
+    src/app/pipeline.h
+    src/app/pipeline.cpp
     src/app/transcript_model.h
     src/app/transcript_model.cpp
     src/app/config.h
@@ -108,8 +112,17 @@ add_executable(dsp_tests
     tests/test_sherpa_link.cpp
     tests/test_sherpa_engine.cpp
     tests/test_deepgram_parse.cpp
+    tests/test_wav.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 dsp_copy_runtime_dlls(dsp_tests)
 include(GoogleTest)
 gtest_discover_tests(dsp_tests DISCOVERY_MODE PRE_TEST)
+
+add_executable(transcriber src/main.cpp src/ui/ui_stub.cpp)
+target_link_libraries(transcriber PRIVATE dsp_core)
+dsp_copy_runtime_dlls(transcriber)
+
+add_executable(wav_client tools/wav_client/main.cpp)
+target_link_libraries(wav_client PRIVATE dsp_core)
+dsp_copy_runtime_dlls(wav_client)
