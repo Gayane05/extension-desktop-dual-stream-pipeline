@@ -17,7 +17,7 @@
 
 namespace dsp {
 int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
-          const Config& cfg);  // implemented in Task 11; stub returns 1 until then
+          const Config& cfg);  // implemented in desktop/src/ui/main_window.cpp
 }
 
 static std::atomic<bool> g_stop{false};

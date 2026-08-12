@@ -119,8 +119,38 @@ dsp_copy_runtime_dlls(dsp_tests)
 include(GoogleTest)
 gtest_discover_tests(dsp_tests DISCOVERY_MODE PRE_TEST)
 
-add_executable(transcriber src/main.cpp src/ui/ui_stub.cpp)
-target_link_libraries(transcriber PRIVATE dsp_core)
+# imgui ships backend sources in the Conan package's res/bindings.
+#
+# The brief's original trick (get_target_property(... INTERFACE_INCLUDE_DIRECTORIES)
+# then cmake_path(GET ... PARENT_PATH)) does not land on res/bindings here: on
+# this multi-config (Visual Studio) generator, Conan's CMakeDeps wraps that
+# property in a $<$<CONFIG:Release>:...> generator expression, which
+# cmake_path() cannot parse at configure time -- it treats the whole
+# genex-wrapped string as one opaque path segment. Resolve the package folder
+# from the CMakeDeps-generated <pkg>_PACKAGE_FOLDER_<CONFIG> variable instead
+# (the same pattern already used above for sherpa-onnx's DLL directory), which
+# is a plain configure-time string.
+set(_IMGUI_PKG "")
+foreach(_cfg RELEASE DEBUG RELWITHDEBINFO MINSIZEREL)
+    if(NOT _IMGUI_PKG AND imgui_PACKAGE_FOLDER_${_cfg})
+        set(_IMGUI_PKG "${imgui_PACKAGE_FOLDER_${_cfg}}")
+    endif()
+endforeach()
+if(NOT _IMGUI_PKG)
+    message(FATAL_ERROR "Could not resolve the imgui Conan package folder")
+endif()
+set(IMGUI_BINDINGS_DIR "${_IMGUI_PKG}/res/bindings")
+if(NOT EXISTS "${IMGUI_BINDINGS_DIR}/imgui_impl_dx11.cpp")
+    message(FATAL_ERROR "imgui bindings not found at ${IMGUI_BINDINGS_DIR}")
+endif()
+add_library(imgui_backends STATIC
+    "${IMGUI_BINDINGS_DIR}/imgui_impl_win32.cpp"
+    "${IMGUI_BINDINGS_DIR}/imgui_impl_dx11.cpp")
+target_include_directories(imgui_backends PUBLIC "${IMGUI_BINDINGS_DIR}")
+target_link_libraries(imgui_backends PUBLIC imgui::imgui d3d11 dxgi)
+
+add_executable(transcriber src/main.cpp src/ui/main_window.cpp)
+target_link_libraries(transcriber PRIVATE dsp_core imgui_backends)
 dsp_copy_runtime_dlls(transcriber)
 
 add_executable(wav_client tools/wav_client/main.cpp)

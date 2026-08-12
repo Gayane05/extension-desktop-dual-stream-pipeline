@@ -17,7 +17,9 @@ bool Pipeline::start(std::string& error) {
         .onAudio = [this](AudioFrame&& f) {
             const int i = static_cast<int>(f.stream);
             const StreamId sid = f.stream;  // capture before tryPush moves f
-            lastFrameCount_[i]++;
+            const auto now = std::chrono::steady_clock::now().time_since_epoch();
+            lastFrameMs_[i].store(
+                std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
             if (!rings_[i].tryPush(std::move(f))) {
                 if (dropped_[i]++ == 0)
                     std::fprintf(stderr, "warning: dropping frames for %s (ring full)\n",
