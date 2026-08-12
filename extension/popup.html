@@ -1,0 +1,22 @@
+<!-- extension/popup.html -->
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  body { width: 260px; font-family: system-ui; margin: 12px; }
+  button { width: 100%; padding: 8px; margin-top: 8px; font-size: 14px; }
+  .row { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; }
+  .ok { color: #1a7f37; } .bad { color: #c62828; } .dim { color: #777; }
+  #error { color: #c62828; font-size: 12px; margin-top: 6px; white-space: pre-wrap; }
+</style></head>
+<body>
+  <b>Dual-Stream Transcriber</b>
+  <button id="toggle">Start capture</button>
+  <div class="row"><span>Capture</span><span id="capture" class="dim">idle</span></div>
+  <div class="row"><span>Desktop app</span><span id="ws" class="bad">disconnected</span></div>
+  <div class="row"><span>Engine</span><span id="engine" class="dim">—</span></div>
+  <div class="row"><span>Mic / Tab</span><span id="streams" class="dim">— / —</span></div>
+  <div id="error"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

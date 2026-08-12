@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Dual-Stream Transcriber",
+  "version": "0.1.0",
+  "description": "Captures mic + tab audio and streams both to the local desktop transcriber.",
+  "permissions": ["tabCapture", "offscreen", "activeTab", "storage"],
+  "background": { "service_worker": "sw.js" },
+  "action": { "default_popup": "popup.html" },
+  "icons": { "128": "icons/icon128.png" }
+}
