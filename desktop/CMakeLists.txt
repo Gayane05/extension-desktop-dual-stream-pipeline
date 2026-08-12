@@ -16,6 +16,8 @@ target_sources(dsp_core PRIVATE
     src/core/version.cpp
     src/core/protocol.h
     src/core/protocol.cpp
+    src/app/transcript_model.h
+    src/app/transcript_model.cpp
 )
 set_target_properties(dsp_core PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(dsp_core PUBLIC src)
@@ -26,6 +28,7 @@ add_executable(dsp_tests
     tests/test_smoke.cpp
     tests/test_protocol.cpp
     tests/test_spsc_ring.cpp
+    tests/test_transcript_model.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 include(GoogleTest)
