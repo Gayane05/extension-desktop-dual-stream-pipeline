@@ -25,6 +25,7 @@ enable_testing()
 add_executable(dsp_tests
     tests/test_smoke.cpp
     tests/test_protocol.cpp
+    tests/test_spsc_ring.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 include(GoogleTest)
