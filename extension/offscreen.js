@@ -5,6 +5,7 @@ const CHUNK_SAMPLES = 1600; // 100 ms @ 16 kHz
 let ws = null, ctx = null, tracks = [], reconnectTimer = null, active = false;
 let wsUrl = "";
 let reconnectAttempts = 0;
+let startGeneration = 0; // bumped by stop() (and by a fresh start()) to invalidate stale in-flight start() calls
 
 function status(patch) {
   chrome.runtime.sendMessage({ type: "offscreen-status", patch }).catch(() => {});
@@ -65,6 +66,9 @@ function connectWs() {
 }
 
 async function start(tabStreamId, port) {
+  // Capturing myGen here (and bumping startGeneration) also invalidates any older
+  // in-flight start() call, so only the most recent start()/stop() "wins".
+  const myGen = ++startGeneration;
   active = true;
   wsUrl = `ws://127.0.0.1:${port}`;
 
@@ -72,13 +76,35 @@ async function start(tabStreamId, port) {
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
   } catch (e) {
-    status({ capture: "error", micPermission: "needed", error: "Microphone permission needed — click the button in the popup." });
-    chrome.runtime.sendMessage({ cmd: "openPermissionPage" }).catch(() => {});
+    active = false;
+    if (startGeneration !== myGen) return; // stop() (or a newer start) superseded this attempt; it already reported idle
+    if (e.name === "NotAllowedError") {
+      status({ capture: "error", micPermission: "needed", error: "Microphone permission needed — click the button in the popup." });
+      chrome.runtime.sendMessage({ cmd: "openPermissionPage" }).catch(() => {});
+    } else {
+      status({ capture: "error", error: "microphone unavailable: " + e.name });
+    }
     return;
   }
-  const tabStream = await navigator.mediaDevices.getUserMedia({
-    audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: tabStreamId } },
-  });
+  if (startGeneration !== myGen) { micStream.getTracks().forEach((t) => t.stop()); return; }
+
+  let tabStream;
+  try {
+    tabStream = await navigator.mediaDevices.getUserMedia({
+      audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: tabStreamId } },
+    });
+  } catch (e) {
+    micStream.getTracks().forEach((t) => t.stop());
+    if (startGeneration !== myGen) return; // superseded; stop() already reported idle
+    status({ capture: "error", error: "tab capture failed: " + (e.message || e) });
+    return;
+  }
+  if (startGeneration !== myGen) {
+    micStream.getTracks().forEach((t) => t.stop());
+    tabStream.getTracks().forEach((t) => t.stop());
+    return;
+  }
+
   tracks = [...micStream.getTracks(), ...tabStream.getTracks()];
 
   // keep the call audible: route captured tab audio back to the speakers
@@ -86,6 +112,14 @@ async function start(tabStreamId, port) {
 
   ctx = new AudioContext({ sampleRate: 16000 });  // browser resamples for us
   await ctx.audioWorklet.addModule("pcm-worklet.js");
+  if (startGeneration !== myGen) {
+    // ctx/tracks are module-level and may already have been torn down by a racing
+    // stop() during this await, so null-guard rather than assuming they're live.
+    if (ctx) { ctx.close(); ctx = null; }
+    tracks.forEach((t) => t.stop());
+    tracks = [];
+    return;
+  }
   const micNode = new AudioWorkletNode(ctx, "pcm-writer");
   const tabNode = new AudioWorkletNode(ctx, "pcm-writer");
   const micAcc = makeAccumulator(TAG.mic);
@@ -100,6 +134,7 @@ async function start(tabStreamId, port) {
 }
 
 function stop() {
+  startGeneration++;
   active = false;
   clearTimeout(reconnectTimer);
   reconnectTimer = null;
