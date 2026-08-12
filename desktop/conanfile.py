@@ -14,7 +14,12 @@ class TranscriberConan(ConanFile):
         self.requires("rapidjson/cci.20230929")
         self.requires("imgui/1.90.9")
         self.requires("gtest/1.15.0")
-        # sherpa-onnx added in Task 7 via local recipe
+        # sherpa-onnx has no ConanCenter recipe; we vendor one under
+        # desktop/recipes/sherpa-onnx. Build it into the local cache first:
+        #   cd recipes/sherpa-onnx
+        #   conan create . --version 1.13.5 --profile:all=../../conan_profiles/default \
+        #       --build=missing -s build_type=Release
+        self.requires("sherpa-onnx/1.13.5")
 
     def configure(self):
         # TLS needed for the Deepgram WSS client. `tls` is not a bool on this
