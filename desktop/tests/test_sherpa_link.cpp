@@ -14,4 +14,7 @@ TEST(SherpaLink, RejectsEmptyConfigGracefully) {
     // compiled against the header and linked/loaded the library.
     const SherpaOnnxOnlineRecognizer* rec = SherpaOnnxCreateOnlineRecognizer(&config);
     EXPECT_EQ(rec, nullptr);
+    // EXPECT_ rather than ASSERT_ above, so clean up if a future sherpa-onnx
+    // ever does return a recognizer here instead of leaking it.
+    SherpaOnnxDestroyOnlineRecognizer(rec);
 }

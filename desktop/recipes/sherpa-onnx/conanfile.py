@@ -78,9 +78,25 @@ class SherpaOnnxConan(ConanFile):
                 "upstream's onnxruntime-win-x64.cmake fails with BUILD_SHARED_LIBS=OFF."
             )
 
+    # sha256 of the upstream tag tarball, keyed by version so bumping `version`
+    # without recording a checksum fails loudly instead of silently trusting
+    # whatever GitHub serves. Verified stable across two independent fetches
+    # (github.com and codeload.github.com return byte-identical archives).
+    _source_sha256 = {
+        "1.13.5": "99f520db7364a06be0c174a385d03f9ccdbfe08f61146055229e4a990e285262",
+    }
+
     def source(self):
+        sha256 = self._source_sha256.get(str(self.version))
+        if sha256 is None:
+            raise ConanInvalidConfiguration(
+                f"No recorded sha256 for sherpa-onnx {self.version}. Download "
+                f"https://github.com/k2-fsa/sherpa-onnx/archive/refs/tags/v{self.version}.tar.gz, "
+                "compute its SHA256, and add it to _source_sha256 before building this version."
+            )
         get(self,
             f"https://github.com/k2-fsa/sherpa-onnx/archive/refs/tags/v{self.version}.tar.gz",
+            sha256=sha256,
             strip_root=True)
 
     def layout(self):
@@ -129,12 +145,12 @@ class SherpaOnnxConan(ConanFile):
             try:
                 cmake.configure()
                 break
-            except ConanException:
+            except ConanException as exc:
                 if attempt == self._configure_attempts:
                     raise
                 self.output.warning(
                     f"cmake.configure() failed (attempt {attempt}/{self._configure_attempts}); "
-                    "retrying -- this is usually a flaky FetchContent download.")
+                    f"retrying -- this is usually a flaky FetchContent download. Error: {exc}")
         cmake.build()
 
     def package(self):
