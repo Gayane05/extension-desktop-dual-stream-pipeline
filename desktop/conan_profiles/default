@@ -1,0 +1,22 @@
+# desktop/conan_profiles/default
+#
+# Project-local Conan profile. Composes on top of the machine's
+# auto-detected `default` profile (run `conan profile detect` once if it
+# does not exist yet) and pins compiler.cppstd=20, since this project
+# targets C++20 throughout and gtest/1.15.0 requires C++17+.
+#
+# A freshly auto-detected profile typically leaves compiler.cppstd at an
+# older value (e.g. 14 for MSVC), which fails to build gtest/1.15.0 from
+# source with a C1189 error. Always use this profile instead of the bare
+# machine default when building this project.
+#
+# Usage (run from the desktop/ directory):
+#   conan install . --profile:all=conan_profiles/default --build=missing -s build_type=Release
+#   cmake --preset conan-default
+#   cmake --build --preset conan-release
+#   ctest --test-dir build --output-on-failure -C Release
+
+include(default)
+
+[settings]
+compiler.cppstd=20
