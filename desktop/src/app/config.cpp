@@ -34,6 +34,10 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         } else if (a == "--model-dir") {
             if (!takeValue(argc, argv, i, v, error)) return std::nullopt;
             c.modelDir = v;
+        } else if (a == "--decoding") {
+            if (!takeValue(argc, argv, i, v, error)) return std::nullopt;
+            if (v != "beam" && v != "greedy") { error = "decoding must be beam|greedy"; return std::nullopt; }
+            c.decoding = v;
         } else if (a == "--headless") {
             c.headless = true;
         } else if (a == "--duration") {

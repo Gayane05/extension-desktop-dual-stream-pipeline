@@ -10,28 +10,40 @@ namespace fs = std::filesystem;
 
 namespace dsp {
 
-// Finds first file in dir matching prefix+".onnx"-ish patterns; descends one
-// level if dir contains a single subdirectory (extracted archive layout).
-static std::string findModelFile(const fs::path& dir, const std::string& prefix) {
-    auto scan = [&](const fs::path& d) -> std::string {
-        if (!fs::exists(d)) return "";
-        for (auto& e : fs::directory_iterator(d)) {
-            auto name = e.path().filename().string();
-            bool ext = name.size() > 5 && name.substr(name.size() - 5) == ".onnx";
-            if (prefix == "tokens" ? name == "tokens.txt"
-                                   : (ext && name.rfind(prefix, 0) == 0 &&
-                                      name.find("int8") == std::string::npos))
-                return e.path().string();
-        }
-        return "";
-    };
-    if (auto f = scan(dir); !f.empty()) return f;
-    // one level of nesting: models/<archive-name>/files
+struct ModelFiles {
+    std::string encoder, decoder, joiner, tokens;
+    bool complete() const {
+        return !encoder.empty() && !decoder.empty() && !joiner.empty() && !tokens.empty();
+    }
+};
+
+// Collects encoder/decoder/joiner (fp32, non-int8) + tokens.txt from ONE
+// directory. All four must come from the same dir so that two extracted model
+// archives side by side under models/ can never be mixed together.
+static ModelFiles scanModelDir(const fs::path& d) {
+    ModelFiles f;
+    if (!fs::exists(d)) return f;
+    for (auto& e : fs::directory_iterator(d)) {
+        auto name = e.path().filename().string();
+        bool onnx = name.size() > 5 && name.substr(name.size() - 5) == ".onnx";
+        bool int8 = name.find("int8") != std::string::npos;
+        if (name == "tokens.txt") f.tokens = e.path().string();
+        else if (onnx && !int8 && name.rfind("encoder", 0) == 0) f.encoder = e.path().string();
+        else if (onnx && !int8 && name.rfind("decoder", 0) == 0) f.decoder = e.path().string();
+        else if (onnx && !int8 && name.rfind("joiner", 0) == 0) f.joiner = e.path().string();
+    }
+    return f;
+}
+
+// Looks in dir itself, then one level of nesting (models/<archive-name>/...);
+// the first subdirectory containing a complete model wins.
+static ModelFiles findModelFiles(const fs::path& dir) {
+    if (auto f = scanModelDir(dir); f.complete()) return f;
     if (fs::exists(dir))
         for (auto& e : fs::directory_iterator(dir))
             if (e.is_directory())
-                if (auto f = scan(e.path()); !f.empty()) return f;
-    return "";
+                if (auto f = scanModelDir(e.path()); f.complete()) return f;
+    return {};
 }
 
 SherpaEngine::SherpaEngine(EngineOptions opts, TranscriptCallback cb)
@@ -40,23 +52,24 @@ SherpaEngine::SherpaEngine(EngineOptions opts, TranscriptCallback cb)
 SherpaEngine::~SherpaEngine() { stop(); }
 
 bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error) {
-    const std::string encoder = findModelFile(opts_.modelDir, "encoder");
-    const std::string decoder = findModelFile(opts_.modelDir, "decoder");
-    const std::string joiner = findModelFile(opts_.modelDir, "joiner");
-    const std::string tokens = findModelFile(opts_.modelDir, "tokens");
-    if (encoder.empty() || decoder.empty() || joiner.empty() || tokens.empty()) {
+    const ModelFiles files = findModelFiles(opts_.modelDir);
+    if (!files.complete()) {
         error = "model files not found in '" + opts_.modelDir +
                 "' -- run scripts/download-model.ps1";
         return false;
     }
     SherpaOnnxOnlineRecognizerConfig cfg{};
-    cfg.model_config.transducer.encoder = encoder.c_str();
-    cfg.model_config.transducer.decoder = decoder.c_str();
-    cfg.model_config.transducer.joiner = joiner.c_str();
-    cfg.model_config.tokens = tokens.c_str();
+    cfg.model_config.transducer.encoder = files.encoder.c_str();
+    cfg.model_config.transducer.decoder = files.decoder.c_str();
+    cfg.model_config.transducer.joiner = files.joiner.c_str();
+    cfg.model_config.tokens = files.tokens.c_str();
     cfg.model_config.provider = provider.c_str();
     cfg.model_config.num_threads = 2;
-    cfg.decoding_method = "greedy_search";
+    // modified_beam_search trades a little decode CPU for a meaningfully lower
+    // word error rate vs greedy; decode cost is small next to the encoder.
+    const bool beam = opts_.decoding != "greedy";
+    cfg.decoding_method = beam ? "modified_beam_search" : "greedy_search";
+    if (beam) cfg.max_active_paths = 4;
     cfg.feat_config.sample_rate = 16000;
     cfg.feat_config.feature_dim = 80;
     cfg.enable_endpoint = 1;
@@ -99,10 +112,20 @@ bool SherpaEngine::start(std::string& error) {
 
 void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsMs) {
     const int idx = static_cast<int>(s);
+    int peak = 0;
     std::vector<float> f(n);
-    for (size_t i = 0; i < n; ++i) f[i] = samples[i] / 32768.0f;
+    for (size_t i = 0; i < n; ++i) {
+        int v = samples[i];
+        if (v < 0) v = -v;
+        if (v > peak) peak = v;
+        f[i] = samples[i] / 32768.0f;
+    }
+    // ~0.3% of full scale: anything below is digital silence (muted source),
+    // far under any real mic/tab noise floor. See voiced_ in the header.
+    constexpr int kVoiceThreshold = 100;
 
     std::lock_guard lk(mu_);
+    if (peak > kVoiceThreshold) voiced_[idx] = true;
     if (!rec_ || !streams_[idx]) return;
     auto* stream = streams_[idx];
     SherpaOnnxOnlineStreamAcceptWaveform(stream, 16000, f.data(), static_cast<int32_t>(n));
@@ -117,12 +140,13 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     // engine (TranscriptModel::apply only takes its own unrelated lock, so
     // this is safe today, but a future callback must not call feed()/stop()).
     if (SherpaOnnxOnlineStreamIsEndpoint(rec_, stream)) {
-        if (!text.empty()) cb_({s, text, true, tsMs});
+        if (!text.empty() && voiced_[idx]) cb_({s, text, true, tsMs});
         SherpaOnnxOnlineStreamReset(rec_, stream);
         lastInterim_[idx].clear();
+        voiced_[idx] = false;  // next utterance must re-prove it has signal
     } else if (text != lastInterim_[idx]) {
         lastInterim_[idx] = text;
-        if (!text.empty()) cb_({s, text, false, tsMs});
+        if (!text.empty() && voiced_[idx]) cb_({s, text, false, tsMs});
     }
 }
 

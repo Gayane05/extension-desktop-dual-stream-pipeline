@@ -179,6 +179,7 @@ Flags:
 | `--provider` | `cpu` \| `cuda` \| `tensorrt` | `cpu` | ONNX Runtime execution provider (sherpa engine only) |
 | `--port` | 1–65535 | `8765` | WebSocket listen port |
 | `--model-dir` | path | `models` | Directory containing the sherpa-onnx model files |
+| `--decoding` | `beam` \| `greedy` | `beam` | sherpa decoding: `beam` (modified_beam_search, more accurate) or `greedy` (slightly faster) |
 | `--headless` | (flag) | off | No window; runs the pipeline and prints transcript JSONL to stdout (finals) / stderr (interims) |
 | `--duration` | seconds | `0` (run until Ctrl+C / window closed) | Auto-stop after N seconds (headless mode) |
 
@@ -338,6 +339,21 @@ to watch the transcript render live instead of reading JSONL from stdout.
   demuxing is a single tag byte at offset 0 of each binary frame.
 
 ## Troubleshooting
+
+**Transcription accuracy is low** — three levers, in order of impact:
+1. Use the larger multi-domain model (LibriSpeech + GigaSpeech — much better on
+   meeting/YouTube-style audio than the default LibriSpeech-only model):
+   ```powershell
+   powershell -File scripts/download-model.ps1 -Model sherpa-onnx-streaming-zipformer-en-2023-06-21
+   cd desktop
+   .\build\Release\transcriber.exe --model-dir models\sherpa-onnx-streaming-zipformer-en-2023-06-21
+   cd ..
+   ```
+2. Keep `--decoding beam` (the default); `greedy` is faster but less accurate.
+3. For maximum accuracy, use the cloud backend: `--engine deepgram` (see
+   [Deepgram backend](#deepgram-backend)).
+Note the local models output uppercase text without punctuation — that is a
+property of their training data, not a transcription error.
 
 **"model files not found in '...' -- run scripts/download-model.ps1"** — the desktop app
 prints this exact command and exits when the sherpa model directory is empty or incomplete.

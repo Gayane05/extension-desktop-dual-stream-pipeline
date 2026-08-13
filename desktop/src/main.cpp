@@ -34,6 +34,7 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     dsp::EngineOptions opts;
     opts.modelDir = cfg.modelDir;
     opts.provider = cfg.provider;
+    opts.decoding = cfg.decoding;
     if (const char* k = std::getenv("DEEPGRAM_API_KEY")) opts.deepgramKey = k;
     if (cfg.engine == "deepgram")
         return std::make_unique<dsp::DeepgramEngine>(opts, std::move(cb));

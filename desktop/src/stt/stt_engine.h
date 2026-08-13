@@ -13,6 +13,7 @@ using TranscriptCallback = std::function<void(const TranscriptEvent&)>;
 struct EngineOptions {
     std::string modelDir;      // dir containing encoder*.onnx decoder*.onnx joiner*.onnx tokens.txt
     std::string provider = "cpu";  // cpu|cuda|tensorrt (sherpa)
+    std::string decoding = "beam";  // beam|greedy (sherpa)
     std::string deepgramKey;   // deepgram only
 };
 

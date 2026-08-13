@@ -8,6 +8,7 @@ struct Config {
     std::string provider = "cpu";
     int port = 8765;
     std::string modelDir = "models";
+    std::string decoding = "beam";  // beam (modified_beam_search) | greedy
     bool headless = false;
     double durationSec = 0;
 };

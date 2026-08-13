@@ -5,7 +5,13 @@
 # (2026-08-12): sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2 is
 # present (~296 MiB), so no fallback model was needed.
 param(
-    [string]$ModelDir = "$PSScriptRoot\..\desktop\models"
+    [string]$ModelDir = "$PSScriptRoot\..\desktop\models",
+    # Default: LibriSpeech-only model (smaller). For better accuracy on
+    # meeting/YouTube-style audio, pass:
+    #   -Model sherpa-onnx-streaming-zipformer-en-2023-06-21
+    # (trained on LibriSpeech + GigaSpeech, ~337 MB encoder), then run the app
+    # with --model-dir pointing at that extracted folder.
+    [string]$Model = "sherpa-onnx-streaming-zipformer-en-2023-06-26"
 )
 $ErrorActionPreference = "Stop"
 
@@ -15,7 +21,7 @@ $ErrorActionPreference = "Stop"
 # unexpectedly." Force it before making any request.
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$name = "sherpa-onnx-streaming-zipformer-en-2023-06-26"
+$name = $Model
 $url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$name.tar.bz2"
 $dest = Join-Path $ModelDir $name
 if (Test-Path (Join-Path $dest "tokens.txt")) {

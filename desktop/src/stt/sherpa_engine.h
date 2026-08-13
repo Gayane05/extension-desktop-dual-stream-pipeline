@@ -39,6 +39,10 @@ private:
     const SherpaOnnxOnlineRecognizer* rec_ = nullptr;
     const SherpaOnnxOnlineStream* streams_[2] = {nullptr, nullptr};
     std::string lastInterim_[2];
+    // True once the current utterance (since the last endpoint reset) has seen
+    // audio above the digital-silence floor. Gates emitted text: beam search
+    // hallucinates tokens on pure zeros (muted mic/tab), verified empirically.
+    bool voiced_[2] = {false, false};
     std::mutex mu_;  // serializes decode across the two feeder threads
 };
 
