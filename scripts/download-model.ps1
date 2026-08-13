@@ -36,6 +36,14 @@ Write-Host "Downloading $url ..."
 # IE first-run configured (irrelevant here anyway since this is a binary
 # download, not HTML).
 Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-tar -xjf $archive -C $ModelDir
+# Use Windows' own bsdtar explicitly: a GNU tar earlier on PATH (e.g. from
+# Git Bash) misparses "C:\..." as a remote host ("Cannot connect to C:").
+& "$env:SystemRoot\System32\tar.exe" -xjf $archive -C $ModelDir
+if ($LASTEXITCODE -ne 0) {
+    throw "tar extraction failed (exit $LASTEXITCODE) for $archive"
+}
 Remove-Item $archive
+if (-not (Test-Path (Join-Path $dest "tokens.txt"))) {
+    throw "extraction finished but $dest\tokens.txt is missing - archive layout unexpected"
+}
 Write-Host "Model ready: $dest"
