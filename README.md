@@ -11,7 +11,7 @@ streaming Zipformer) runs entirely on CPU with no accounts, keys, or network cal
 inference time. CUDA/TensorRT acceleration and a Deepgram cloud backend are available as
 opt-in flags (see [GPU acceleration](#gpu-acceleration) and [Deepgram backend](#deepgram-backend)).
 
-<!-- To add the UI screenshot: capture the running app as docs/screenshot.png and restore: ![Two-lane transcript](docs/screenshot.png) -->
+![Two-lane transcript](docs/screenshot.png)
 
 ## Table of contents
 
@@ -133,7 +133,7 @@ ctest --test-dir build --output-on-failure -C Release
 cd ..
 ```
 
-Expect `100% tests passed` (44 tests). The suite covers the wire protocol, the SPSC ring
+Expect `100% tests passed` (45 tests). The suite covers the wire protocol, the SPSC ring
 buffer, the transcript model, config parsing, the WS server (including single-client
 enforcement), the sherpa-onnx link/engine, Deepgram JSON parsing, WAV reading, and transcript
 save — no model or network access is required for `ctest` itself.
