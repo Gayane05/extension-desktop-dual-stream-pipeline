@@ -20,3 +20,6 @@ desktop/samples/
 
 # ImGui window-state file written next to the exe at runtime
 imgui.ini
+
+# local secrets - never commit
+.env
