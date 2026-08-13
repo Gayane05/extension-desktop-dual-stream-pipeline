@@ -20,3 +20,13 @@ include(default)
 
 [settings]
 compiler.cppstd=20
+
+[conf]
+# A machine-global vcpkg MSBuild integration (from `vcpkg integrate install`)
+# injects vcpkg's include/lib paths into every MSBuild project, including the
+# ones Conan generates while building packages from source. That silently
+# compiles/links Conan packages against vcpkg's OpenSSL/zlib instead of
+# Conan's own (observed: ixwebsocket.lib carrying vcpkg OpenSSL 3 symbols and
+# a broken TLS handshake at runtime). Fence vcpkg out of ALL builds driven by
+# this profile; harmless on machines without the vcpkg integration.
+tools.cmake.cmaketoolchain:extra_variables={"CMAKE_VS_GLOBALS": "VcpkgEnabled=false"}

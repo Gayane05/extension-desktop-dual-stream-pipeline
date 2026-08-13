@@ -2,6 +2,7 @@
 #include "stt/deepgram_engine.h"
 
 #include <chrono>
+#include <cstdio>
 
 #include <ixwebsocket/IXWebSocket.h>
 #include <rapidjson/document.h>
@@ -56,6 +57,17 @@ bool DeepgramEngine::start(std::string& error) {
         ws_[i]->setOnMessageCallback([this, s](const ix::WebSocketMessagePtr& msg) {
             if (msg->type == ix::WebSocketMessageType::Message && !msg->binary) {
                 if (auto ev = parseDeepgramMessage(s, msg->str, nowMs())) cb_(*ev);
+            } else if (msg->type == ix::WebSocketMessageType::Error) {
+                // Surface connection/TLS/HTTP failures instead of dying silently;
+                // automatic reconnection keeps retrying in the background.
+                std::fprintf(stderr, "deepgram[%s] connection error: %s (http %d)\n",
+                             streamName(s), msg->errorInfo.reason.c_str(),
+                             msg->errorInfo.http_status);
+            } else if (msg->type == ix::WebSocketMessageType::Open) {
+                std::fprintf(stderr, "deepgram[%s] connected\n", streamName(s));
+            } else if (msg->type == ix::WebSocketMessageType::Close) {
+                std::fprintf(stderr, "deepgram[%s] closed: %d %s\n", streamName(s),
+                             msg->closeInfo.code, msg->closeInfo.reason.c_str());
             }
         });
         ws_[i]->start();

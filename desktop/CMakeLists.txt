@@ -4,6 +4,14 @@ project(dual_stream_transcriber CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# A machine-global vcpkg MSBuild integration (if present) injects its own
+# include/lib paths into every generated VS project, silently overriding
+# Conan's OpenSSL/zlib at link time. Observed symptom: transcriber.exe
+# importing vcpkg's libssl-3-x64.dll and failing every TLS handshake
+# ("peer didn't present a X509 certificate"). Conan owns ALL third-party
+# dependencies in this project, so shut vcpkg out of the build entirely.
+set(CMAKE_VS_GLOBALS "VcpkgEnabled=false")
+
 find_package(ixwebsocket REQUIRED)
 find_package(RapidJSON REQUIRED)
 find_package(imgui REQUIRED)
