@@ -17,3 +17,6 @@ desktop/models/
 
 # generated sample WAVs (created at runtime by scripts/make-samples.ps1)
 desktop/samples/
+
+# ImGui window-state file written next to the exe at runtime
+imgui.ini
