@@ -23,3 +23,6 @@ imgui.ini
 
 # local secrets - never commit
 .env
+
+# transcript saved from the UI at runtime
+transcript.txt
