@@ -72,10 +72,14 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     if (beam) cfg.max_active_paths = 4;
     cfg.feat_config.sample_rate = 16000;
     cfg.feat_config.feature_dim = 80;
+    // Endpointing controls how utterances split into finals: rule2 fires
+    // after a pause following speech (the sentence-splitting knob, exposed
+    // as --endpoint-silence), rule1 after long silence with no speech, and
+    // rule3 force-finalizes run-on speech that never pauses.
     cfg.enable_endpoint = 1;
     cfg.rule1_min_trailing_silence = 2.4f;
-    cfg.rule2_min_trailing_silence = 1.2f;
-    cfg.rule3_min_utterance_length = 30.0f;
+    cfg.rule2_min_trailing_silence = static_cast<float>(opts_.endpointSilenceSec);
+    cfg.rule3_min_utterance_length = 20.0f;
     rec_ = SherpaOnnxCreateOnlineRecognizer(&cfg);
     if (!rec_) {
         error = "failed to create recognizer (provider=" + provider + ")";

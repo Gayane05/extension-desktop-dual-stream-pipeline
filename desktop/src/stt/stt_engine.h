@@ -14,6 +14,7 @@ struct EngineOptions {
     std::string modelDir;      // dir containing encoder*.onnx decoder*.onnx joiner*.onnx tokens.txt
     std::string provider = "cpu";  // cpu|cuda|tensorrt (sherpa)
     std::string decoding = "beam";  // beam|greedy (sherpa)
+    double endpointSilenceSec = 0.8;  // sherpa endpoint rule2 (see config.h)
     std::string deepgramKey;   // deepgram only
 };
 

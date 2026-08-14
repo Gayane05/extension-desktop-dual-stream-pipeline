@@ -180,6 +180,7 @@ Flags:
 | `--port` | 1–65535 | `8765` | WebSocket listen port |
 | `--model-dir` | path | `models` | Directory containing the sherpa-onnx model files |
 | `--decoding` | `beam` \| `greedy` | `beam` | sherpa decoding: `beam` (modified_beam_search, more accurate) or `greedy` (slightly faster) |
+| `--endpoint-silence` | 0.2–5.0 s | `0.8` | Pause length after speech that finalizes an utterance (sherpa engine). Smaller = more sentence-like splits |
 | `--headless` | (flag) | off | No window; runs the pipeline and prints transcript JSONL to stdout (finals) / stderr (interims) |
 | `--duration` | seconds | `0` (run until Ctrl+C / window closed) | Auto-stop after N seconds (headless mode) |
 
@@ -354,6 +355,11 @@ to watch the transcript render live instead of reading JSONL from stdout.
    [Deepgram backend](#deepgram-backend)).
 Note the local models output uppercase text without punctuation — that is a
 property of their training data, not a transcription error.
+
+**Sentences run together into long blocks (sherpa)** — utterances are only
+finalized after a pause (`--endpoint-silence`, default 0.8 s) or a 20 s
+run-on cap. For fast, flowing speech try `--endpoint-silence 0.5`; for slow
+dictation with long pauses, raise it to avoid splitting mid-sentence.
 
 **"model files not found in '...' -- run scripts/download-model.ps1"** — the desktop app
 prints this exact command and exits when the sherpa model directory is empty or incomplete.

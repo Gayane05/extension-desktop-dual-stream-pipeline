@@ -38,6 +38,12 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
             if (!takeValue(argc, argv, i, v, error)) return std::nullopt;
             if (v != "beam" && v != "greedy") { error = "decoding must be beam|greedy"; return std::nullopt; }
             c.decoding = v;
+        } else if (a == "--endpoint-silence") {
+            if (!takeValue(argc, argv, i, v, error)) return std::nullopt;
+            try { c.endpointSilenceSec = std::stod(v); } catch (...) { error = "invalid endpoint-silence"; return std::nullopt; }
+            if (c.endpointSilenceSec < 0.2 || c.endpointSilenceSec > 5.0) {
+                error = "endpoint-silence must be 0.2..5.0 seconds"; return std::nullopt;
+            }
         } else if (a == "--headless") {
             c.headless = true;
         } else if (a == "--duration") {

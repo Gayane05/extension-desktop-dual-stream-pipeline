@@ -16,6 +16,7 @@ TEST(Config, Defaults) {
     EXPECT_EQ(c->provider, "cpu");
     EXPECT_EQ(c->port, 8765);
     EXPECT_EQ(c->decoding, "beam");
+    EXPECT_DOUBLE_EQ(c->endpointSilenceSec, 0.8);
     EXPECT_FALSE(c->headless);
 }
 
@@ -23,6 +24,7 @@ TEST(Config, ParsesAllFlags) {
     std::string err;
     auto c = parse({"--engine", "deepgram", "--provider", "cuda", "--port", "9000",
                     "--model-dir", "D:/models", "--decoding", "greedy",
+                    "--endpoint-silence", "0.5",
                     "--headless", "--duration", "12.5"}, err);
     ASSERT_TRUE(c) << err;
     EXPECT_EQ(c->engine, "deepgram");
@@ -30,6 +32,7 @@ TEST(Config, ParsesAllFlags) {
     EXPECT_EQ(c->port, 9000);
     EXPECT_EQ(c->modelDir, "D:/models");
     EXPECT_EQ(c->decoding, "greedy");
+    EXPECT_DOUBLE_EQ(c->endpointSilenceSec, 0.5);
     EXPECT_TRUE(c->headless);
     EXPECT_DOUBLE_EQ(c->durationSec, 12.5);
 }
@@ -39,6 +42,9 @@ TEST(Config, RejectsBadValues) {
     EXPECT_FALSE(parse({"--engine", "whisper"}, err));
     EXPECT_FALSE(parse({"--provider", "opencl"}, err));
     EXPECT_FALSE(parse({"--decoding", "fast"}, err));
+    EXPECT_FALSE(parse({"--endpoint-silence", "abc"}, err));
+    EXPECT_FALSE(parse({"--endpoint-silence", "0.1"}, err));   // below range
+    EXPECT_FALSE(parse({"--endpoint-silence", "6"}, err));     // above range
     EXPECT_FALSE(parse({"--port", "notanumber"}, err));
     EXPECT_FALSE(parse({"--port"}, err));  // missing value
     EXPECT_FALSE(parse({"--unknown-flag"}, err));
