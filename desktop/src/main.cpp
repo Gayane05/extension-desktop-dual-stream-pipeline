@@ -10,6 +10,7 @@
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
 #include <thread>
 
@@ -37,6 +38,40 @@ static std::atomic<bool> g_stop{false};
 static void onSignal(int)
 {
     g_stop = true;
+}
+
+// Makes the default model path work for double-click launches. The README's
+// documented flow runs the exe from desktop/, where the default "models" dir
+// resolves directly -- but Explorer launches set cwd to the exe's own folder
+// (desktop/build/Release), where it does not. When the user did NOT override
+// --model-dir and the default is missing at the cwd, look next to the exe and
+// up to two parent levels (build/Release -> build -> desktop). An explicitly
+// passed --model-dir is never second-guessed.
+static void resolveDefaultModelDir(dsp::Config& cfg)
+{
+    namespace fs = std::filesystem;
+    if (cfg.modelDir != "models" || fs::exists(cfg.modelDir))
+    {
+        return;
+    }
+#ifdef _WIN32
+    char exePath[MAX_PATH]{};
+    if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) == 0)
+    {
+        return;
+    }
+    fs::path dir = fs::path(exePath).parent_path();
+    for (int up = 0; up <= 2; ++up)
+    {
+        const fs::path candidate = dir / "models";
+        if (fs::exists(candidate))
+        {
+            cfg.modelDir = candidate.string();
+            return;
+        }
+        dir = dir.parent_path();
+    }
+#endif
 }
 
 static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
@@ -92,6 +127,8 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "error: %s\n", err.c_str());
         return 2;
     }
+
+    resolveDefaultModelDir(*cfg);
 
     dsp::TranscriptModel model;
     auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& ev) {

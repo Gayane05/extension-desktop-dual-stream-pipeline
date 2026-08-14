@@ -186,6 +186,11 @@ Flags:
 
 Example: `.\build\Release\transcriber.exe --port 9000 --model-dir C:\models\zipformer`
 
+Double-clicking `transcriber.exe` in Explorer also works: when `--model-dir` is not
+overridden, the app looks for `models/` next to the exe and up to two parent levels
+(so `desktop\models` is found from `desktop\build\Release`). A console window opens
+alongside the UI — that is expected (the same binary serves `--headless` runs).
+
 ### Chrome extension
 
 1. Open `chrome://extensions`.
