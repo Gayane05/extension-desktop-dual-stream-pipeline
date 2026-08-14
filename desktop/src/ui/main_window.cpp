@@ -6,6 +6,7 @@
 #include <tchar.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "app/config.h"
@@ -147,6 +148,27 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGuiStyle& style = ImGui::GetStyle();
     style.FramePadding = ImVec2(14.0f, 8.0f);
     style.FrameRounding = 3.0f;
+    // Replace ImGui's 13px bitmap default with a larger, softer system font.
+    // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
+    // neither loads (non-standard Windows install), scale the bitmap default
+    // rather than staying tiny.
+    ImGuiIO& io = ImGui::GetIO();
+    const char* windir = std::getenv("WINDIR");
+    const std::string fontBase = std::string(windir ? windir : "C:\\Windows") + "\\Fonts\\";
+    ImFont* uiFont = nullptr;
+    for (const char* fontFile : {"SegUIVar.ttf", "segoeui.ttf"})
+    {
+        const std::string path = fontBase + fontFile;
+        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), 20.0f);
+        if (uiFont)
+        {
+            break;
+        }
+    }
+    if (!uiFont)
+    {
+        io.FontGlobalScale = 1.5f;
+    }
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
