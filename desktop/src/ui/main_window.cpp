@@ -142,6 +142,11 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
+    // Larger click targets: FramePadding sizes buttons/checkboxes (default is
+    // a cramped 4x3); a touch more rounding keeps them looking intentional.
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.FramePadding = ImVec2(14.0f, 8.0f);
+    style.FrameRounding = 3.0f;
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
