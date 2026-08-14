@@ -1,3 +1,11 @@
+// desktop/src/app/pipeline.h
+//
+// Owns the WsServer and the two per-stream demux -> ring -> worker chains
+// that carry audio from the extension to the STT engine (ISttEngine). Sits
+// between net/ws_server.h (source: raw frames off the wire) and stt/*
+// (sink: feed() calls on dedicated worker threads). Constructed once in
+// main.cpp and driven from either the ImGui loop (main_window.cpp) or the
+// headless timed loop.
 #pragma once
 #include <atomic>
 #include <chrono>

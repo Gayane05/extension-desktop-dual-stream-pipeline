@@ -1,3 +1,10 @@
+// desktop/src/main.cpp
+//
+// Process entry point: parses Config, constructs the chosen ISttEngine
+// (sherpa or deepgram), wires it into a Pipeline (which owns the WsServer
+// the extension connects to), and then either runs the ImGui window
+// (runUi(), in main_window.cpp) or, under --headless, a timed loop that
+// prints TranscriptEvents as JSONL to stdout/stderr for scripted/E2E use.
 #include <atomic>
 #include <chrono>
 #include <csignal>

@@ -1,4 +1,8 @@
 // desktop/tests/test_sherpa_engine.cpp
+//
+// Integration tests for SherpaEngine against the real vendored model files
+// under desktop/models: recognizer creation, feed()/endpoint behavior, and
+// the digital-silence gate (voiced_).
 #include <gtest/gtest.h>
 
 #include <cmath>

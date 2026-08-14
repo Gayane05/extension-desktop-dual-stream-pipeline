@@ -1,4 +1,10 @@
 // extension/perm.js
+// extension/perm.js
+//
+// Standalone permission-prompt page (perm.html), opened by sw.js
+// (openPermissionPage) when offscreen.js's getUserMedia fails with
+// NotAllowedError. Exists because an offscreen document cannot itself
+// surface a browser mic-permission prompt to the user; a real tab can.
 document.getElementById("req").addEventListener("click", async () => {
   const out = document.getElementById("result");
   try {

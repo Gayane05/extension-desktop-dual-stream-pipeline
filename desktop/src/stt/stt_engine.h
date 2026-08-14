@@ -1,4 +1,12 @@
 // desktop/src/stt/stt_engine.h
+//
+// Engine-agnostic interface Pipeline's worker threads feed audio into (see
+// pipeline.cpp's workerLoop) and that emits TranscriptEvents into
+// TranscriptModel via TranscriptCallback. Two implementations: SherpaEngine
+// (local ONNX model) and DeepgramEngine (cloud WS API) -- main.cpp's
+// makeEngine() picks one based on Config::engine. Callers must not call
+// feed() before start() returns, nor concurrently with stop() (see each
+// implementation's header for the precise threading contract).
 #pragma once
 #include <functional>
 #include <string>

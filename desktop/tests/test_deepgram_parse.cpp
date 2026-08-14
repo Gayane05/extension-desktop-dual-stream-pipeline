@@ -1,4 +1,7 @@
 // desktop/tests/test_deepgram_parse.cpp
+//
+// Unit tests for parseDeepgramMessage (stt/deepgram_engine.h): interim vs
+// final "Results" JSON, and rejection of unrelated/malformed messages.
 #include <gtest/gtest.h>
 
 #include "stt/deepgram_engine.h"

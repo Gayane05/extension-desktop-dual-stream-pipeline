@@ -1,4 +1,11 @@
 // desktop/src/ui/main_window.cpp
+//
+// Win32 + Direct3D 11 + Dear ImGui shell for the desktop app's window. Reads
+// state produced elsewhere (Pipeline's connection/stream status,
+// TranscriptModel's snapshot) and renders it every frame; the only thing it
+// writes back is user intent (Clear/Save button clicks, the pushStatus()
+// heartbeat). Entered once from main() via runUi() and run until the window
+// is closed. Not built/used in --headless mode.
 #include <d3d11.h>
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
@@ -24,6 +31,10 @@ IDXGISwapChain* g_swapChain = nullptr;
 ID3D11RenderTargetView* g_rtv = nullptr;
 bool g_usingWarp = false;
 
+// D3D lifecycle: createDevice() (device+swapchain+RTV) pairs with
+// destroyDevice() (called once at shutdown), while createRenderTarget()
+// alone pairs with releasing just g_rtv on WM_SIZE (wndProc below) --
+// resizing needs a fresh render target view but not a fresh device/swapchain.
 void createRenderTarget()
 {
     ID3D11Texture2D* back = nullptr;
@@ -208,6 +219,10 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     // which leaves the popup showing stale (or initial "idle/idle") state
     // for the rest of a session. Push ~1x/second from the render loop too.
     double lastStatusPush = -1.0;
+    // Per-frame structure: pump the Win32 message queue (so the window stays
+    // responsive/resizable), start a new ImGui frame, push a status
+    // heartbeat at most 1x/second, lay out the widgets against
+    // Pipeline/TranscriptModel state, then render. Runs until WM_QUIT.
     while (!done)
     {
         MSG msg;

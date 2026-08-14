@@ -1,10 +1,29 @@
 // extension/offscreen.js
+//
+// Does the actual audio work: captures mic + tab audio, runs both through
+// the pcm-worklet.js AudioWorklet to get mono Float32 chunks, accumulates
+// those into fixed-size 100ms frames, and ships each frame as a binary
+// WebSocket message to the desktop app (net/ws_server.h) using the wire
+// format in core/protocol.h. Lives in an offscreen document (not the service
+// worker) because getUserMedia/AudioContext require a DOM context that MV3
+// service workers don't have. Capture graph: getUserMedia(mic) and
+// getUserMedia(tab) -> AudioContext -> one AudioWorkletNode per source ->
+// makeAccumulator() -> sendFrame() -> WebSocket. Commanded by sw.js via
+// chrome.runtime messages (start/stop); reports status back the same way.
 const TAG = { mic: 0, tab: 1 };
 const CHUNK_SAMPLES = 1600; // 100 ms @ 16 kHz
 
 let ws = null, ctx = null, tracks = [], reconnectTimer = null, active = false;
 let wsUrl = "";
 let reconnectAttempts = 0;
+// start() awaits multiple async steps (getUserMedia x2, addModule), each of
+// which yields control and gives the user (or a bug) a window to call
+// stop() -- or click Start again -- before the previous start() finishes.
+// Without a guard, a stale start() resuming after that would clobber the
+// state a newer stop()/start() already set up (or open a duplicate WS/audio
+// graph). startGeneration makes each start() attempt check, after every
+// await, whether it is still the current attempt before touching shared
+// state; if not, it tears down whatever it privately acquired and bails.
 let startGeneration = 0; // bumped by stop() (and by a fresh start()) to invalidate stale in-flight start() calls
 
 function status(patch) {

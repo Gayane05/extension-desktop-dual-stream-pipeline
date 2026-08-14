@@ -1,3 +1,10 @@
+// desktop/src/app/transcript_model.h
+//
+// Thread-safe accumulator for what the UI shows: STT engines (stt/*) call
+// apply() from their own decode/callback threads as TranscriptEvents arrive,
+// and the UI thread (main_window.cpp) calls snapshot()/toText() to render or
+// save. Owns the interim-vs-final merge logic so engines only need to report
+// events as they happen, without worrying about display ordering.
 #pragma once
 #include <mutex>
 #include <optional>

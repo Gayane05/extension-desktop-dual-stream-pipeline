@@ -1,3 +1,8 @@
+// desktop/src/app/config.h
+//
+// Process-wide settings parsed from CLI args (see config.cpp) and threaded
+// through to main.cpp's engine/pipeline construction and (when --headless)
+// the timed run loop. Plain data + one free function; no behavior lives here.
 #pragma once
 #include <optional>
 #include <string>

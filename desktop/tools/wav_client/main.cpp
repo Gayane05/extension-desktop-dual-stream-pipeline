@@ -84,6 +84,13 @@ int main(int argc, char** argv)
     constexpr size_t kChunk = 1600;  // 100 ms
     const size_t maxLen = std::max(mic->samples.size(), tab->samples.size());
     auto t0 = steady_clock::now();
+    // Pace chunks against absolute deadlines (t0 + N*100ms) rather than
+    // sleeping 100ms between iterations: a fixed per-iteration sleep
+    // accumulates drift from the loop body's own execution time (and any
+    // scheduler jitter), so after enough chunks the stream would run
+    // measurably slower than real time. Anchoring every deadline to t0
+    // instead keeps long-run average pacing accurate, matching how the
+    // extension feeds audio in real time.
     for (size_t off = 0; off < maxLen; off += kChunk)
     {
         double tsMs = duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
@@ -100,6 +107,10 @@ int main(int argc, char** argv)
         sendChunk(StreamId::Tab, tab->samples);
         std::this_thread::sleep_until(t0 + milliseconds(100) * (off / kChunk + 1));
     }
+    // sherpa's endpoint rules (see sherpa_engine.cpp) finalize an utterance
+    // only after observing a trailing silence gap, so without feeding a few
+    // seconds of silence after the real audio ends, the last utterance in
+    // the WAV would stay "pending" (interim) forever with no final emitted.
     // trailing silence so endpointing fires finals
     std::vector<int16_t> silence(kChunk, 0);
     for (int i = 0; i < 30; ++i)

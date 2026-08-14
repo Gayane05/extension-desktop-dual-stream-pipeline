@@ -1,3 +1,7 @@
+// desktop/tests/test_transcript_model.cpp
+//
+// Unit tests for app/transcript_model.h: interim-replacement semantics,
+// sorted-final insertion by timestamp, and snapshot/clear/toText behavior.
 #include <gtest/gtest.h>
 
 #include <atomic>

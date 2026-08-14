@@ -1,3 +1,7 @@
+// desktop/tests/test_wav.cpp
+//
+// Unit tests for core/wav.h's RIFF/WAVE reader: valid PCM16 mono round-trip
+// and rejection of wrong format/channels/bit depth.
 #include <gtest/gtest.h>
 
 #include <cstdio>

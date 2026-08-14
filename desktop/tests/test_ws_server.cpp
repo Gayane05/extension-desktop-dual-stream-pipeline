@@ -1,4 +1,8 @@
 // desktop/tests/test_ws_server.cpp
+//
+// Integration tests for net/ws_server.h against a real ixwebsocket client:
+// hello/bye handshake, audio frame delivery via callbacks, and the
+// single-active-client rejection rule.
 #include <gtest/gtest.h>
 #include <ixwebsocket/IXNetSystem.h>
 #include <ixwebsocket/IXWebSocket.h>

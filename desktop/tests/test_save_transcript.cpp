@@ -1,3 +1,7 @@
+// desktop/tests/test_save_transcript.cpp
+//
+// Unit tests for ui/save_transcript.h: full-content writes on success and
+// error reporting for open/write failures.
 #include <gtest/gtest.h>
 
 #include <cstdio>

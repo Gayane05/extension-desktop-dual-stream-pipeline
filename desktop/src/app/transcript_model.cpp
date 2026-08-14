@@ -1,3 +1,4 @@
+// desktop/src/app/transcript_model.cpp
 #include "app/transcript_model.h"
 
 #include <algorithm>
@@ -5,6 +6,15 @@
 
 namespace dsp {
 
+// Two-tier state per stream: at most one "pending" (interim) utterance,
+// which is wholesale replaced by each new interim from the engine (there is
+// only ever one in-flight utterance per lane -- sherpa/deepgram don't emit
+// overlapping interims), plus a growing list of "final" utterances that are
+// never edited once inserted. isFinal=false events therefore just overwrite
+// pending_[stream]; isFinal=true events clear pending_ and graduate the text
+// into finals_, keeping finals_ sorted by capture timestamp (not arrival
+// order) via upper_bound insertion, since mic and tab finalize independently
+// and network jitter can deliver them out of chronological order.
 void TranscriptModel::apply(const TranscriptEvent& ev)
 {
     std::lock_guard lk(mu_);
@@ -25,6 +35,10 @@ void TranscriptModel::apply(const TranscriptEvent& ev)
     finals_.insert(it, std::move(u));
 }
 
+// Finals are already sorted by tsMs (see apply()); each stream's pending
+// interim is appended after them unconditionally, so an in-progress
+// utterance always renders below all completed ones regardless of its own
+// timestamp -- matching how a live transcript view is expected to read.
 std::vector<Utterance> TranscriptModel::snapshot() const
 {
     std::lock_guard lk(mu_);

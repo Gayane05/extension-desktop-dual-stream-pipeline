@@ -10,6 +10,12 @@ typedef struct SherpaOnnxOnlineStream SherpaOnnxOnlineStream;
 
 namespace dsp {
 
+// Local, on-device STT via sherpa-onnx's streaming zipformer transducer.
+// Implements ISttEngine; owns one recognizer shared by both streams (Mic and
+// Tab each get their own SherpaOnnxOnlineStream, decoded under a shared
+// mutex) so model weights are loaded once regardless of how many lanes are
+// active. See sherpa_engine.cpp for endpointing/decoding-method rationale.
+//
 // Threading: start() must complete before any feed() calls begin (feeder
 // threads are spawned only after start() returns). feed() is safe to call
 // from multiple threads concurrently (the internal mutex serializes decode

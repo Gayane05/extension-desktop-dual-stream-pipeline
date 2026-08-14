@@ -1,4 +1,10 @@
 // extension/popup.js
+//
+// The toolbar popup UI: a thin view over sw.js's status. Sends start/stop
+// commands and getStatus requests to sw.js, and re-renders on every
+// "ext-status" broadcast; holds no capture logic itself. Opens/closes with
+// the popup window, so it always re-syncs via getStatus on open rather than
+// relying on having received every broadcast while it was closed.
 let running = false;
 
 function render(st) {

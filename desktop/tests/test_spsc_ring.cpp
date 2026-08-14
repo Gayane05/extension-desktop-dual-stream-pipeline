@@ -1,3 +1,8 @@
+// desktop/tests/test_spsc_ring.cpp
+//
+// Unit/concurrency tests for core/spsc_ring.h: FIFO ordering, full/empty
+// edge cases, and cross-thread push/pop correctness under popWait's blocking
+// semaphore wait.
 #include <gtest/gtest.h>
 
 #include <atomic>

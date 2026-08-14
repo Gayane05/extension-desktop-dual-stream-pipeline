@@ -1,3 +1,4 @@
+// desktop/src/app/pipeline.cpp
 #include "app/pipeline.h"
 
 #include <cstdio>
@@ -19,6 +20,10 @@ bool Pipeline::start(std::string& error)
     server_ = std::make_unique<WsServer>(
         cfg_.port,
         WsServer::Callbacks{
+            // Demux: onAudio fires on a WsServer connection thread for both
+            // streams; f.stream picks which of the two per-stream rings this
+            // frame lands in, decoupling network delivery from STT decode
+            // pacing on the corresponding workerLoop below.
             .onAudio =
                 [this](AudioFrame&& f) {
                     const int i = static_cast<int>(f.stream);
@@ -26,6 +31,14 @@ bool Pipeline::start(std::string& error)
                     const auto now = std::chrono::steady_clock::now().time_since_epoch();
                     lastFrameMs_[i].store(
                         std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+                    // tryPush drop policy: if the STT worker is falling behind
+                    // (ring full), drop the newest frame rather than blocking
+                    // the connection thread or growing the ring unbounded --
+                    // audio is real-time data, so a dropped chunk is strictly
+                    // better than an ever-growing backlog of stale audio. Log
+                    // only the first drop per lane to avoid flooding stderr
+                    // during a sustained backlog; droppedChunks() still counts
+                    // every one for the UI.
                     if (!rings_[i].tryPush(std::move(f)))
                     {
                         if (dropped_[i]++ == 0)
@@ -59,6 +72,10 @@ bool Pipeline::start(std::string& error)
     return true;
 }
 
+// Consumer side of the demux -> ring -> worker flow: one dedicated thread
+// per stream (see start()) drains this stream's ring and feeds the shared
+// STT engine, so mic and tab decode independently and neither lane's decode
+// latency can stall the other's frame delivery.
 void Pipeline::workerLoop(StreamId s)
 {
     auto& ring = rings_[static_cast<int>(s)];

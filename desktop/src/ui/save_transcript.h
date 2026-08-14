@@ -1,4 +1,9 @@
 // desktop/src/ui/save_transcript.h
+//
+// Invoked from main_window.cpp's "Save transcript" button with
+// TranscriptModel::toText() as input; writes to transcript.txt next to the
+// executable. Split out from main_window.cpp specifically so it can be unit
+// tested (see below) without pulling ImGui/D3D into the test binary.
 #pragma once
 #include <string>
 

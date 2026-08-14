@@ -12,9 +12,18 @@ class WebSocket;
 
 namespace dsp {
 
+// Parses one Deepgram streaming "Results" message into a TranscriptEvent
+// (or nullopt for message types/shapes we don't care about). Free function
+// (not a method) so it's unit-testable without spinning up a real WS
+// connection -- see desktop/tests/test_deepgram_parse.cpp.
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId s, const std::string& json,
                                                     double nowMs);
 
+// Cloud STT via Deepgram's streaming API. Implements ISttEngine; unlike
+// SherpaEngine there is no local model or shared decode state -- each stream
+// gets its own independent WS connection to Deepgram (ws_[0]/ws_[1]), so
+// this class is mostly a thin PCM-forwarder plus message-to-event parsing.
+//
 // Threading: start() must complete before any feed() calls begin (feeder
 // threads are spawned only after start() returns), mirroring SherpaEngine's
 // contract. feed() is safe to call from multiple threads concurrently -- each

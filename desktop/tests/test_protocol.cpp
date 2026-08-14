@@ -1,4 +1,7 @@
 // desktop/tests/test_protocol.cpp
+//
+// Unit tests for core/protocol.h's wire codec: binary frame round-trip and
+// malformed-input rejection, plus the hello/bye/status/error JSON helpers.
 #include <gtest/gtest.h>
 
 #include <cstring>

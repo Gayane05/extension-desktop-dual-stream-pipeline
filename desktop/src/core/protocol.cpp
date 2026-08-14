@@ -1,3 +1,11 @@
+// desktop/src/core/protocol.cpp
+//
+// Wire codec for the extension<->desktop link: turns raw WsServer bytes into
+// AudioFrame/HelloInfo structs (parse side, called from ws_server.cpp's
+// message callback) and turns outgoing status/error into JSON text (build
+// side, called from pipeline.cpp). Malformed input from the wire is rejected
+// here by returning std::nullopt/false rather than throwing, since the
+// sender (a browser extension) is not a trusted peer.
 #include "core/protocol.h"
 
 #include <rapidjson/document.h>
@@ -9,6 +17,8 @@
 
 namespace dsp {
 
+// Layout: byte 0 = stream tag, bytes 1..8 = LE f64 capture timestamp (ms),
+// remaining bytes = PCM16 mono samples. See kFrameHeaderSize in protocol.h.
 std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len)
 {
     if (len < kFrameHeaderSize)
@@ -26,6 +36,10 @@ std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len)
     }
     AudioFrame f;
     f.stream = static_cast<StreamId>(data[0]);
+    // memcpy rather than a reinterpret_cast<double*> read: data+1 is not
+    // guaranteed 8-byte aligned (it points one byte into a wire buffer), and
+    // an unaligned double read plus the strict-aliasing rule both make a
+    // direct cast undefined behavior. memcpy sidesteps both.
     std::memcpy(&f.captureTsMs, data + 1, sizeof(double));  // LE host assumed (x86-64)
     // A NaN/Inf timestamp (malformed or malicious sender) would otherwise
     // flow straight into lastFrameMs_/streamState() and downstream JSON
@@ -42,10 +56,14 @@ std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len)
     return f;
 }
 
+// Mirror of parseBinaryFrame's layout; used by desktop/tools/wav_client to
+// synthesize frames identical in shape to what the extension sends.
 std::vector<uint8_t> serializeBinaryFrame(StreamId s, double tsMs, const int16_t* samples, size_t n)
 {
     std::vector<uint8_t> out(kFrameHeaderSize + n * 2);
     out[0] = static_cast<uint8_t>(s);
+    // Same alignment/strict-aliasing reasoning as the parse side: memcpy into
+    // the unaligned byte buffer instead of an aliasing double* write.
     std::memcpy(out.data() + 1, &tsMs, sizeof(double));
     if (n > 0)
     {

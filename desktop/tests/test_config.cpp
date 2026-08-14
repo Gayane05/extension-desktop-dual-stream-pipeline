@@ -1,3 +1,7 @@
+// desktop/tests/test_config.cpp
+//
+// Unit tests for app/config.h's CLI argv parser (parseArgs): defaults, valid
+// flag values, and rejection of invalid/missing ones.
 #include <gtest/gtest.h>
 
 #include "app/config.h"

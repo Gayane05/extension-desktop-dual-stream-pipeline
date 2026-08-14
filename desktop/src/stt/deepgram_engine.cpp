@@ -1,4 +1,11 @@
 // desktop/src/stt/deepgram_engine.cpp
+//
+// See deepgram_engine.h for the class-level role/threading summary. Opens
+// one Deepgram streaming WS connection per lane in start(), forwards raw
+// PCM16 bytes in feed(), and turns Deepgram's JSON "Results" messages back
+// into TranscriptEvents via the onMessage callback (which runs on
+// ixwebsocket's own background thread per connection, not the feeder
+// thread).
 #include "stt/deepgram_engine.h"
 
 #include <ixwebsocket/IXWebSocket.h>
@@ -71,6 +78,10 @@ bool DeepgramEngine::start(std::string& error)
         error = "DEEPGRAM_API_KEY not set (required for --engine deepgram)";
         return false;
     }
+    // encoding/sample_rate/channels here must match what feed() actually
+    // sends (raw PCM16 mono @ 16 kHz, no header) -- Deepgram has no way to
+    // infer the format itself for a raw linear16 stream, unlike the WAV/ogg
+    // uploads its non-streaming API can sniff.
     const std::string url =
         "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000"
         "&channels=1&interim_results=true&punctuate=true&model=nova-2";

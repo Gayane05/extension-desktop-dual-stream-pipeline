@@ -1,4 +1,13 @@
 // desktop/src/net/ws_server.h
+//
+// The localhost WebSocket endpoint the extension (extension/offscreen.js)
+// connects to. Wraps ixwebsocket, parses the wire protocol (core/protocol.h)
+// on each message, and hands parsed frames/events to Pipeline via Callbacks.
+// Single-client rule: only one connection may be "active" (past hello) at a
+// time, since the AudioFrame rings downstream require a single producer per
+// stream (see activeId_/rejected_ below). All Callbacks fire on whichever
+// ixwebsocket connection thread received the message -- never on the thread
+// that called start().
 #pragma once
 #include <functional>
 #include <map>

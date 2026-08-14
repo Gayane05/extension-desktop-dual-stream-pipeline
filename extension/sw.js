@@ -1,4 +1,12 @@
 // extension/sw.js
+//
+// MV3 background service worker: the extension's message-routing hub. Owns
+// the offscreen document's lifecycle (creates it on start, closes it on
+// stop -- offscreen.js does the actual mic/tab capture, since service
+// workers cannot use getUserMedia/AudioContext), and relays status between
+// offscreen.js and popup.js. Has no persistent state of its own beyond
+// lastStatus, which is checkpointed to chrome.storage.session because the
+// worker itself is evicted and re-run from scratch after ~30s idle.
 const OFFSCREEN_URL = "offscreen.html";
 const DESKTOP_PORT = 8765;
 

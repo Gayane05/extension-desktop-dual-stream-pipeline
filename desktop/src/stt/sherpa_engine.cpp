@@ -1,4 +1,9 @@
 // desktop/src/stt/sherpa_engine.cpp
+//
+// See sherpa_engine.h for the class-level role/threading summary. This file
+// covers model-file discovery under Config::modelDir, recognizer
+// construction (decoding method, endpointing rules), and the per-chunk
+// feed()/decode/endpoint-check loop that turns PCM16 into TranscriptEvents.
 #include "stt/sherpa_engine.h"
 
 #include <sherpa-onnx/c-api/c-api.h>

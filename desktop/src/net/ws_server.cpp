@@ -1,4 +1,9 @@
 // desktop/src/net/ws_server.cpp
+//
+// See ws_server.h for the class-level role/threading summary. This file
+// implements the per-connection hello state machine: every connection must
+// send a valid "hello" JSON before its binary audio frames are accepted, and
+// only one connection may be active (hello-accepted) at a time.
 #include "net/ws_server.h"
 
 #include <ixwebsocket/IXNetSystem.h>
@@ -17,6 +22,12 @@ bool WsServer::start(std::string& error)
 {
     ix::initNetSystem();
     server_ = std::make_unique<ix::WebSocketServer>(port_, "127.0.0.1");
+    // Per-connection state machine, keyed by ConnectionState::getId():
+    // Open -> helloSeen_[id]=false (not yet authorized) -> a valid "hello"
+    // flips it true (and, if no other client is active, makes this id
+    // activeId_) -> binary frames are only forwarded to onAudio once
+    // helloSeen_[id] is true -> Close erases the id's bookkeeping. Bound to
+    // 127.0.0.1 only: this is not meant to be reachable off-machine.
     server_->setOnClientMessageCallback([this](std::shared_ptr<ix::ConnectionState> state,
                                                ix::WebSocket& ws,
                                                const ix::WebSocketMessagePtr& msg) {

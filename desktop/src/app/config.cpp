@@ -1,3 +1,9 @@
+// desktop/src/app/config.cpp
+//
+// Hand-rolled argv parser for Config (see config.h): flag-by-flag validation
+// with immediate std::nullopt + error message on the first bad/missing
+// value, rather than a generic options library, since the flag set is small
+// and fixed. Called once from main() before any engine/pipeline is created.
 #include "app/config.h"
 
 #include <charconv>

@@ -1,4 +1,8 @@
 // desktop/src/ui/save_transcript.cpp
+//
+// CRT-level implementation of the contract described in save_transcript.h;
+// see there for why every failure mode (open/short-write/close) must be
+// caught explicitly rather than assumed to succeed.
 #include "ui/save_transcript.h"
 
 #include <cstdio>

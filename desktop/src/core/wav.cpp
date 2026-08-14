@@ -1,3 +1,4 @@
+// desktop/src/core/wav.cpp
 #include "core/wav.h"
 
 #include <cstring>
@@ -5,6 +6,11 @@
 
 namespace dsp {
 
+// RIFF files are a flat sequence of [4-byte id][4-byte size][payload]
+// chunks after the 12-byte "RIFF"+size+"WAVE" header. We only care about
+// "fmt " (codec/rate/bits) and "data" (samples); every other chunk (e.g.
+// "LIST", "fact") is skipped by its declared size so this walk works
+// regardless of which optional chunks a given WAV writer included.
 std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& error)
 {
     std::ifstream f(path, std::ios::binary);
@@ -79,6 +85,10 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
         }
         else
         {
+            // RIFF pads odd-sized chunk payloads with one extra byte so the
+            // next chunk header always starts on a 2-byte boundary; that pad
+            // byte isn't part of `size`, so skip size+1 (not size) to land on
+            // the next chunk's id rather than one byte short of it.
             f.seekg(size + (size % 2), std::ios::cur);  // chunks are word-aligned
         }
     }
