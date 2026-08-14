@@ -6,7 +6,8 @@
 
 namespace dsp {
 enum class StreamId : uint8_t { Mic = 0, Tab = 1 };
-inline const char* streamName(StreamId s) {
+inline const char* streamName(StreamId s)
+{
     return s == StreamId::Mic ? "mic" : "tab";
 }
 

@@ -27,12 +27,14 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
 }
 
 static std::atomic<bool> g_stop{false};
-static void onSignal(int) {
+static void onSignal(int)
+{
     g_stop = true;
 }
 
 static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
-                                                   dsp::TranscriptCallback cb) {
+                                                   dsp::TranscriptCallback cb)
+{
     dsp::EngineOptions opts;
     opts.modelDir = cfg.modelDir;
     opts.provider = cfg.provider;
@@ -51,7 +53,8 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
 // other characters requiring escaping). Emit the line with RapidJSON's
 // Writer instead -- the same approach protocol.cpp already uses for
 // buildStatusJson/buildErrorJson -- so the text field is always valid JSON.
-static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev) {
+static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev)
+{
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> w(sb);
     w.StartObject();
@@ -69,7 +72,8 @@ static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev) {
     return sb.GetString();
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     std::string err;
     auto cfg = dsp::parseArgs(argc, argv, err);
     if (!cfg)

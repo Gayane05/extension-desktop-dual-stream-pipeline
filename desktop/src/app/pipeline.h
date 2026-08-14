@@ -20,7 +20,8 @@ public:
     uint64_t droppedChunks(StreamId s) const { return dropped_[static_cast<int>(s)].load(); }
     // "streaming" only while a frame arrived within the last 2s, so the UI
     // badge doesn't lie forever once a client disconnects mid-stream.
-    std::string streamState(StreamId s) const {
+    std::string streamState(StreamId s) const
+    {
         const int64_t last = lastFrameMs_[static_cast<int>(s)].load();
         if (last == 0)
             return "idle";

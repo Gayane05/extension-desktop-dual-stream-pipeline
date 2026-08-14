@@ -8,7 +8,8 @@
 #include <gtest/gtest.h>
 #include <sherpa-onnx/c-api/c-api.h>
 
-TEST(SherpaLink, RejectsEmptyConfigGracefully) {
+TEST(SherpaLink, RejectsEmptyConfigGracefully)
+{
     SherpaOnnxOnlineRecognizerConfig config{};
     // Invalid (empty model paths) -- must return null, not crash. Proves we
     // compiled against the header and linked/loaded the library.

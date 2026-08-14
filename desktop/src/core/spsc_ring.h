@@ -13,7 +13,8 @@ class SpscRing {
 public:
     explicit SpscRing(size_t capacity) : buf_(capacity + 1) {}
 
-    bool tryPush(T&& v) {
+    bool tryPush(T&& v)
+    {
         const size_t head = head_.load(std::memory_order_relaxed);
         const size_t next = (head + 1) % buf_.size();
         if (next == tail_.load(std::memory_order_acquire))
@@ -24,7 +25,8 @@ public:
         return true;
     }
 
-    std::optional<T> popWait() {
+    std::optional<T> popWait()
+    {
         for (;;)
         {
             sem_.acquire();
@@ -36,7 +38,8 @@ public:
         }
     }
 
-    void close() {
+    void close()
+    {
         closed_.store(true, std::memory_order_release);
         // Over-release semaphore with headroom (64 is arbitrary); one credit suffices for
         // the single consumer, but extra permits are harmless because tryPop validates
@@ -48,7 +51,8 @@ public:
     bool closed() const { return closed_.load(std::memory_order_acquire); }
 
 private:
-    bool tryPop(T& out) {
+    bool tryPop(T& out)
+    {
         const size_t tail = tail_.load(std::memory_order_relaxed);
         if (tail == head_.load(std::memory_order_acquire))
             return false;

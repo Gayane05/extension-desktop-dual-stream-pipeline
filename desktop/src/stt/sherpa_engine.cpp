@@ -12,7 +12,8 @@ namespace dsp {
 
 struct ModelFiles {
     std::string encoder, decoder, joiner, tokens;
-    bool complete() const {
+    bool complete() const
+    {
         return !encoder.empty() && !decoder.empty() && !joiner.empty() && !tokens.empty();
     }
 };
@@ -20,7 +21,8 @@ struct ModelFiles {
 // Collects encoder/decoder/joiner (fp32, non-int8) + tokens.txt from ONE
 // directory. All four must come from the same dir so that two extracted model
 // archives side by side under models/ can never be mixed together.
-static ModelFiles scanModelDir(const fs::path& d) {
+static ModelFiles scanModelDir(const fs::path& d)
+{
     ModelFiles f;
     if (!fs::exists(d))
         return f;
@@ -43,7 +45,8 @@ static ModelFiles scanModelDir(const fs::path& d) {
 
 // Looks in dir itself, then one level of nesting (models/<archive-name>/...);
 // the first subdirectory containing a complete model wins.
-static ModelFiles findModelFiles(const fs::path& dir) {
+static ModelFiles findModelFiles(const fs::path& dir)
+{
     if (auto f = scanModelDir(dir); f.complete())
         return f;
     if (fs::exists(dir))
@@ -55,13 +58,17 @@ static ModelFiles findModelFiles(const fs::path& dir) {
 }
 
 SherpaEngine::SherpaEngine(EngineOptions opts, TranscriptCallback cb)
-    : opts_(std::move(opts)), cb_(std::move(cb)) {}
+    : opts_(std::move(opts)), cb_(std::move(cb))
+{
+}
 
-SherpaEngine::~SherpaEngine() {
+SherpaEngine::~SherpaEngine()
+{
     stop();
 }
 
-bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error) {
+bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error)
+{
     const ModelFiles files = findModelFiles(opts_.modelDir);
     if (!files.complete())
     {
@@ -102,7 +109,8 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     return true;
 }
 
-bool SherpaEngine::start(std::string& error) {
+bool SherpaEngine::start(std::string& error)
+{
     // Takes mu_ even though the lifecycle contract (see header) guarantees no
     // concurrent feed()/stop() during start(): this makes the class
     // self-defending rather than contract-reliant, at zero cost (init-time
@@ -134,7 +142,8 @@ bool SherpaEngine::start(std::string& error) {
     return streams_[0] && streams_[1];
 }
 
-void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsMs) {
+void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsMs)
+{
     const int idx = static_cast<int>(s);
     int peak = 0;
     std::vector<float> f(n);
@@ -184,7 +193,8 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     }
 }
 
-void SherpaEngine::stop() {
+void SherpaEngine::stop()
+{
     std::lock_guard lk(mu_);
     for (auto*& st : streams_)
         if (st)

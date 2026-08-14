@@ -6,7 +6,8 @@
 
 namespace dsp {
 
-bool saveTranscriptFile(const std::string& path, const std::string& text, std::string& error) {
+bool saveTranscriptFile(const std::string& path, const std::string& text, std::string& error)
+{
     FILE* f = nullptr;
     const errno_t openErr = fopen_s(&f, path.c_str(), "wb");
     if (openErr != 0 || f == nullptr)

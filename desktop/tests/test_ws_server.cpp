@@ -15,7 +15,8 @@ using namespace std::chrono_literals;
 
 namespace {
 template <typename Pred>
-bool waitFor(Pred p, std::chrono::milliseconds timeout = 5000ms) {
+bool waitFor(Pred p, std::chrono::milliseconds timeout = 5000ms)
+{
     auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline)
     {
@@ -27,7 +28,8 @@ bool waitFor(Pred p, std::chrono::milliseconds timeout = 5000ms) {
 }
 }  // namespace
 
-TEST(WsServer, HelloThenAudioReachesCallback) {
+TEST(WsServer, HelloThenAudioReachesCallback)
+{
     ix::initNetSystem();
     std::atomic<int> frames{0};
     std::atomic<bool> gotHello{false};
@@ -70,7 +72,8 @@ TEST(WsServer, HelloThenAudioReachesCallback) {
     ix::uninitNetSystem();
 }
 
-TEST(WsServer, AudioBeforeHelloIsDropped) {
+TEST(WsServer, AudioBeforeHelloIsDropped)
+{
     ix::initNetSystem();
     std::atomic<int> frames{0};
     WsServer server(18766, {
@@ -101,7 +104,8 @@ TEST(WsServer, AudioBeforeHelloIsDropped) {
     ix::uninitNetSystem();
 }
 
-TEST(WsServer, BadHelloGetsErrorAndClose) {
+TEST(WsServer, BadHelloGetsErrorAndClose)
+{
     ix::initNetSystem();
     WsServer server(18767, {
                                .onAudio = [](AudioFrame&&) {},
@@ -139,7 +143,8 @@ TEST(WsServer, BadHelloGetsErrorAndClose) {
 // The SPSC rings behind onAudio require a single producer per stream. A
 // second client that sends hello while one is already active must be
 // rejected (error + close) without disturbing the first client's stream.
-TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming) {
+TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
+{
     ix::initNetSystem();
     std::atomic<int> framesA{0};
     std::atomic<int> helloCount{0};

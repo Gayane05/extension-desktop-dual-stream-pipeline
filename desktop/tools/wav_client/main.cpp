@@ -21,7 +21,8 @@
 using namespace dsp;
 using namespace std::chrono;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     if (argc < 3)
     {
         std::fprintf(stderr, "usage: wav_client <mic.wav> <tab.wav> [port]\n");

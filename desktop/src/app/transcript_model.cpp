@@ -5,7 +5,8 @@
 
 namespace dsp {
 
-void TranscriptModel::apply(const TranscriptEvent& ev) {
+void TranscriptModel::apply(const TranscriptEvent& ev)
+{
     std::lock_guard lk(mu_);
     auto& pending = pending_[static_cast<int>(ev.stream)];
     if (!ev.isFinal)
@@ -22,7 +23,8 @@ void TranscriptModel::apply(const TranscriptEvent& ev) {
     finals_.insert(it, std::move(u));
 }
 
-std::vector<Utterance> TranscriptModel::snapshot() const {
+std::vector<Utterance> TranscriptModel::snapshot() const
+{
     std::lock_guard lk(mu_);
     std::vector<Utterance> out = finals_;
     for (const auto& p : pending_)
@@ -31,14 +33,16 @@ std::vector<Utterance> TranscriptModel::snapshot() const {
     return out;
 }
 
-void TranscriptModel::clear() {
+void TranscriptModel::clear()
+{
     std::lock_guard lk(mu_);
     finals_.clear();
     pending_[0].reset();
     pending_[1].reset();
 }
 
-std::string TranscriptModel::toText() const {
+std::string TranscriptModel::toText() const
+{
     std::lock_guard lk(mu_);
     std::string out;
     for (const auto& u : finals_)

@@ -9,7 +9,8 @@
 
 namespace dsp {
 
-std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len) {
+std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len)
+{
     if (len < kFrameHeaderSize)
         return std::nullopt;
     if (data[0] > 1)
@@ -31,8 +32,8 @@ std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len) {
     return f;
 }
 
-std::vector<uint8_t> serializeBinaryFrame(StreamId s, double tsMs, const int16_t* samples,
-                                          size_t n) {
+std::vector<uint8_t> serializeBinaryFrame(StreamId s, double tsMs, const int16_t* samples, size_t n)
+{
     std::vector<uint8_t> out(kFrameHeaderSize + n * 2);
     out[0] = static_cast<uint8_t>(s);
     std::memcpy(out.data() + 1, &tsMs, sizeof(double));
@@ -41,7 +42,8 @@ std::vector<uint8_t> serializeBinaryFrame(StreamId s, double tsMs, const int16_t
     return out;
 }
 
-static std::optional<rapidjson::Document> parseDoc(const std::string& text) {
+static std::optional<rapidjson::Document> parseDoc(const std::string& text)
+{
     rapidjson::Document d;
     d.Parse(text.c_str());
     if (d.HasParseError() || !d.IsObject())
@@ -49,7 +51,8 @@ static std::optional<rapidjson::Document> parseDoc(const std::string& text) {
     return d;
 }
 
-std::optional<HelloInfo> parseHello(const std::string& jsonText) {
+std::optional<HelloInfo> parseHello(const std::string& jsonText)
+{
     auto d = parseDoc(jsonText);
     if (!d)
         return std::nullopt;
@@ -69,14 +72,16 @@ std::optional<HelloInfo> parseHello(const std::string& jsonText) {
     return h;
 }
 
-bool isBye(const std::string& jsonText) {
+bool isBye(const std::string& jsonText)
+{
     auto d = parseDoc(jsonText);
     return d && d->HasMember("type") && (*d)["type"].IsString() &&
            std::string((*d)["type"].GetString()) == "bye";
 }
 
 std::string buildStatusJson(const std::string& engine, const std::string& provider,
-                            const std::string& micState, const std::string& tabState) {
+                            const std::string& micState, const std::string& tabState)
+{
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> w(sb);
     w.StartObject();
@@ -97,7 +102,8 @@ std::string buildStatusJson(const std::string& engine, const std::string& provid
     return sb.GetString();
 }
 
-std::string buildErrorJson(const std::string& message) {
+std::string buildErrorJson(const std::string& message)
+{
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> w(sb);
     w.StartObject();

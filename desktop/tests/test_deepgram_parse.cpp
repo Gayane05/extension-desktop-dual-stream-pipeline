@@ -15,7 +15,8 @@ static const char* kFinal = R"({
 })";
 static const char* kMeta = R"({"type":"Metadata","request_id":"x"})";
 
-TEST(DeepgramParse, Interim) {
+TEST(DeepgramParse, Interim)
+{
     auto ev = parseDeepgramMessage(StreamId::Tab, kInterim, 5000.0);
     ASSERT_TRUE(ev);
     EXPECT_EQ(ev->stream, StreamId::Tab);
@@ -24,14 +25,16 @@ TEST(DeepgramParse, Interim) {
     EXPECT_DOUBLE_EQ(ev->tsMs, 5000.0);
 }
 
-TEST(DeepgramParse, Final) {
+TEST(DeepgramParse, Final)
+{
     auto ev = parseDeepgramMessage(StreamId::Mic, kFinal, 6000.0);
     ASSERT_TRUE(ev);
     EXPECT_TRUE(ev->isFinal);
     EXPECT_EQ(ev->text, "hello world");
 }
 
-TEST(DeepgramParse, IgnoresMetadataEmptyAndGarbage) {
+TEST(DeepgramParse, IgnoresMetadataEmptyAndGarbage)
+{
     EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic, kMeta, 0.0));
     EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic, "{}", 0.0));
     EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic, "garbage", 0.0));

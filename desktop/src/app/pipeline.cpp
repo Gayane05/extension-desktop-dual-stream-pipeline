@@ -9,11 +9,13 @@ namespace dsp {
 
 Pipeline::Pipeline(const Config& cfg, ISttEngine& engine) : cfg_(cfg), engine_(engine) {}
 
-Pipeline::~Pipeline() {
+Pipeline::~Pipeline()
+{
     stop();
 }
 
-bool Pipeline::start(std::string& error) {
+bool Pipeline::start(std::string& error)
+{
     server_ = std::make_unique<WsServer>(
         cfg_.port,
         WsServer::Callbacks{
@@ -53,7 +55,8 @@ bool Pipeline::start(std::string& error) {
     return true;
 }
 
-void Pipeline::workerLoop(StreamId s) {
+void Pipeline::workerLoop(StreamId s)
+{
     auto& ring = rings_[static_cast<int>(s)];
     while (auto frame = ring.popWait())
     {
@@ -61,7 +64,9 @@ void Pipeline::workerLoop(StreamId s) {
         // silently mid-worker-loop; log and stop this lane's worker rather
         // than letting an exception escape a detached-looking thread.
         try
-        { engine_.feed(s, frame->samples.data(), frame->samples.size(), frame->captureTsMs); }
+        {
+            engine_.feed(s, frame->samples.data(), frame->samples.size(), frame->captureTsMs);
+        }
         catch (const std::exception& e)
         {
             std::fprintf(stderr, "engine feed error (%s): %s\n", streamName(s), e.what());
@@ -75,7 +80,8 @@ void Pipeline::workerLoop(StreamId s) {
     }
 }
 
-void Pipeline::pushStatus() {
+void Pipeline::pushStatus()
+{
     // stopping_ is set (by stop(), below) before server_->stop() runs, and
     // pushStatus() is only ever invoked from WsServer's connection-thread
     // callbacks (onHello/onClientGone) -- never from the main thread. Bailing
@@ -93,7 +99,8 @@ void Pipeline::pushStatus() {
                                            streamState(StreamId::Mic), streamState(StreamId::Tab)));
 }
 
-void Pipeline::stop() {
+void Pipeline::stop()
+{
     stopping_.store(true);
     if (server_)
         server_->stop();

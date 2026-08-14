@@ -5,7 +5,8 @@
 
 namespace dsp {
 
-std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& error) {
+std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& error)
+{
     std::ifstream f(path, std::ios::binary);
     if (!f)
     {

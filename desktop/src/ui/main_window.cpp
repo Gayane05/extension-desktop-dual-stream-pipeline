@@ -23,14 +23,16 @@ IDXGISwapChain* g_swapChain = nullptr;
 ID3D11RenderTargetView* g_rtv = nullptr;
 bool g_usingWarp = false;
 
-void createRenderTarget() {
+void createRenderTarget()
+{
     ID3D11Texture2D* back = nullptr;
     g_swapChain->GetBuffer(0, IID_PPV_ARGS(&back));
     g_device->CreateRenderTargetView(back, nullptr, &g_rtv);
     back->Release();
 }
 
-bool createDevice(HWND hwnd) {
+bool createDevice(HWND hwnd)
+{
     DXGI_SWAP_CHAIN_DESC sd{};
     sd.BufferCount = 2;
     sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -57,7 +59,8 @@ bool createDevice(HWND hwnd) {
     return false;
 }
 
-void destroyDevice() {
+void destroyDevice()
+{
     if (g_rtv)
     {
         g_rtv->Release();
@@ -80,7 +83,8 @@ void destroyDevice() {
     }
 }
 
-LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l) {
+LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
+{
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, w, l))
         return true;
     switch (msg)
@@ -107,7 +111,8 @@ LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l) {
 
 namespace dsp {
 
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg) {
+int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg)
+{
     WNDCLASSEXW wc = {sizeof(wc),
                       CS_CLASSDC,
                       wndProc,

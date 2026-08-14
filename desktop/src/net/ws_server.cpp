@@ -8,11 +8,13 @@
 namespace dsp {
 
 WsServer::WsServer(int port, Callbacks cb) : port_(port), cb_(std::move(cb)) {}
-WsServer::~WsServer() {
+WsServer::~WsServer()
+{
     stop();
 }
 
-bool WsServer::start(std::string& error) {
+bool WsServer::start(std::string& error)
+{
     ix::initNetSystem();
     server_ = std::make_unique<ix::WebSocketServer>(port_, "127.0.0.1");
     server_->setOnClientMessageCallback([this](std::shared_ptr<ix::ConnectionState> state,
@@ -112,7 +114,8 @@ bool WsServer::start(std::string& error) {
     return true;
 }
 
-void WsServer::stop() {
+void WsServer::stop()
+{
     if (server_)
     {
         server_->stop();
@@ -122,7 +125,8 @@ void WsServer::stop() {
     helloSeen_.clear();
 }
 
-void WsServer::broadcast(const std::string& textJson) {
+void WsServer::broadcast(const std::string& textJson)
+{
     if (!server_)
         return;
     for (auto&& client : server_->getClients())

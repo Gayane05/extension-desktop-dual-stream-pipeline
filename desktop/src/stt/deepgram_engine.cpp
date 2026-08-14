@@ -10,7 +10,8 @@
 namespace dsp {
 
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId s, const std::string& json,
-                                                    double nowMs) {
+                                                    double nowMs)
+{
     rapidjson::Document d;
     d.Parse(json.c_str());
     if (d.HasParseError() || !d.IsObject())
@@ -34,20 +35,25 @@ std::optional<TranscriptEvent> parseDeepgramMessage(StreamId s, const std::strin
     return TranscriptEvent{s, text, isFinal, nowMs};
 }
 
-static double nowMs() {
+static double nowMs()
+{
     return std::chrono::duration<double, std::milli>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
 }
 
 DeepgramEngine::DeepgramEngine(EngineOptions opts, TranscriptCallback cb)
-    : opts_(std::move(opts)), cb_(std::move(cb)) {}
+    : opts_(std::move(opts)), cb_(std::move(cb))
+{
+}
 
-DeepgramEngine::~DeepgramEngine() {
+DeepgramEngine::~DeepgramEngine()
+{
     stop();
 }
 
-bool DeepgramEngine::start(std::string& error) {
+bool DeepgramEngine::start(std::string& error)
+{
     if (opts_.deepgramKey.empty())
     {
         error = "DEEPGRAM_API_KEY not set (required for --engine deepgram)";
@@ -93,14 +99,16 @@ bool DeepgramEngine::start(std::string& error) {
     return true;
 }
 
-void DeepgramEngine::feed(StreamId s, const int16_t* samples, size_t n, double /*tsMs*/) {
+void DeepgramEngine::feed(StreamId s, const int16_t* samples, size_t n, double /*tsMs*/)
+{
     auto& ws = ws_[static_cast<int>(s)];
     if (!ws)
         return;
     ws->sendBinary(std::string(reinterpret_cast<const char*>(samples), n * 2));
 }
 
-void DeepgramEngine::stop() {
+void DeepgramEngine::stop()
+{
     for (auto& ws : ws_)
         if (ws)
         {

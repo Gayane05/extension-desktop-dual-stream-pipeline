@@ -10,7 +10,8 @@
 
 using dsp::SpscRing;
 
-TEST(SpscRing, PushPopFifo) {
+TEST(SpscRing, PushPopFifo)
+{
     SpscRing<int> q(4);
     EXPECT_TRUE(q.tryPush(1));
     EXPECT_TRUE(q.tryPush(2));
@@ -18,14 +19,16 @@ TEST(SpscRing, PushPopFifo) {
     EXPECT_EQ(q.popWait().value(), 2);
 }
 
-TEST(SpscRing, TryPushFailsWhenFull) {
+TEST(SpscRing, TryPushFailsWhenFull)
+{
     SpscRing<int> q(2);
     EXPECT_TRUE(q.tryPush(1));
     EXPECT_TRUE(q.tryPush(2));
     EXPECT_FALSE(q.tryPush(3));  // full: incoming dropped by caller
 }
 
-TEST(SpscRing, CloseUnblocksConsumerAndDrains) {
+TEST(SpscRing, CloseUnblocksConsumerAndDrains)
+{
     SpscRing<int> q(4);
     q.tryPush(42);
     q.close();
@@ -33,7 +36,8 @@ TEST(SpscRing, CloseUnblocksConsumerAndDrains) {
     EXPECT_FALSE(q.popWait().has_value());  // then reports closed
 }
 
-TEST(SpscRing, ThreadedSmoke) {
+TEST(SpscRing, ThreadedSmoke)
+{
     SpscRing<int> q(1024);
     constexpr int kN = 100000;
     std::thread producer([&] {
@@ -51,7 +55,8 @@ TEST(SpscRing, ThreadedSmoke) {
     EXPECT_EQ(expected, kN);
 }
 
-TEST(SpscRing, CloseWakesBlockedConsumer) {
+TEST(SpscRing, CloseWakesBlockedConsumer)
+{
     auto q = std::make_shared<SpscRing<int>>(4);
     auto started = std::make_shared<std::atomic<bool>>(false);
     std::promise<std::optional<int>> resultPromise;

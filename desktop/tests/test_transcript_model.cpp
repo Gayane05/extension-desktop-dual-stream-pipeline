@@ -7,7 +7,8 @@
 
 using namespace dsp;
 
-TEST(TranscriptModel, InterimReplacedInPlace) {
+TEST(TranscriptModel, InterimReplacedInPlace)
+{
     TranscriptModel m;
     m.apply({StreamId::Mic, "hel", false, 100.0});
     m.apply({StreamId::Mic, "hello wor", false, 100.0});
@@ -17,7 +18,8 @@ TEST(TranscriptModel, InterimReplacedInPlace) {
     EXPECT_FALSE(s[0].isFinal);
 }
 
-TEST(TranscriptModel, FinalCommitsAndClearsPending) {
+TEST(TranscriptModel, FinalCommitsAndClearsPending)
+{
     TranscriptModel m;
     m.apply({StreamId::Mic, "hello", false, 100.0});
     m.apply({StreamId::Mic, "hello world", true, 100.0});
@@ -27,7 +29,8 @@ TEST(TranscriptModel, FinalCommitsAndClearsPending) {
     EXPECT_EQ(s[0].text, "hello world");
 }
 
-TEST(TranscriptModel, LanesInterleaveChronologically) {
+TEST(TranscriptModel, LanesInterleaveChronologically)
+{
     TranscriptModel m;
     m.apply({StreamId::Tab, "how are you", true, 200.0});
     m.apply({StreamId::Mic, "fine thanks", true, 300.0});
@@ -41,7 +44,8 @@ TEST(TranscriptModel, LanesInterleaveChronologically) {
     EXPECT_FALSE(s[3].isFinal);
 }
 
-TEST(TranscriptModel, OutOfOrderFinalInsertsSorted) {
+TEST(TranscriptModel, OutOfOrderFinalInsertsSorted)
+{
     TranscriptModel m;
     m.apply({StreamId::Mic, "later", true, 900.0});
     m.apply({StreamId::Tab, "earlier", true, 100.0});
@@ -50,13 +54,15 @@ TEST(TranscriptModel, OutOfOrderFinalInsertsSorted) {
     EXPECT_EQ(s[1].text, "later");
 }
 
-TEST(TranscriptModel, EmptyFinalIgnored) {
+TEST(TranscriptModel, EmptyFinalIgnored)
+{
     TranscriptModel m;
     m.apply({StreamId::Mic, "", true, 100.0});
     EXPECT_TRUE(m.snapshot().empty());
 }
 
-TEST(TranscriptModel, ToTextFormatsFinalsOnly) {
+TEST(TranscriptModel, ToTextFormatsFinalsOnly)
+{
     TranscriptModel m;
     // 1h 2m 3s = 3723000 ms; 1h 2m 4s = 3724000 ms
     m.apply({StreamId::Mic, "hello there", true, 3723000.0});
@@ -67,7 +73,8 @@ TEST(TranscriptModel, ToTextFormatsFinalsOnly) {
               "[01:02:04] Others: hi yourself\n");
 }
 
-TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke) {
+TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke)
+{
     TranscriptModel m;
     constexpr int kN = 5000;
     std::thread micWriter([&] {

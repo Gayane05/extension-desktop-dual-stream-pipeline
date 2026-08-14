@@ -8,7 +8,8 @@
 
 using namespace dsp;
 
-TEST(Protocol, RoundTripBinaryFrame) {
+TEST(Protocol, RoundTripBinaryFrame)
+{
     std::vector<int16_t> pcm{100, -200, 32767, -32768};
     auto bytes = serializeBinaryFrame(StreamId::Tab, 1723456789123.5, pcm.data(), pcm.size());
     ASSERT_EQ(bytes.size(), 9 + pcm.size() * 2);
@@ -19,7 +20,8 @@ TEST(Protocol, RoundTripBinaryFrame) {
     EXPECT_EQ(frame->samples, pcm);
 }
 
-TEST(Protocol, RejectsTruncatedAndBadTag) {
+TEST(Protocol, RejectsTruncatedAndBadTag)
+{
     std::vector<int16_t> pcm{1};
     auto ok = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
     EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());   // shorter than header
@@ -28,7 +30,8 @@ TEST(Protocol, RejectsTruncatedAndBadTag) {
     EXPECT_FALSE(parseBinaryFrame(ok.data(), ok.size()).has_value());
 }
 
-TEST(Protocol, RejectsNonFiniteCaptureTs) {
+TEST(Protocol, RejectsNonFiniteCaptureTs)
+{
     std::vector<int16_t> pcm{1, 2, 3};
     auto bytes = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
     ASSERT_TRUE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());  // sanity: valid as-is
@@ -37,14 +40,16 @@ TEST(Protocol, RejectsNonFiniteCaptureTs) {
     EXPECT_FALSE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());
 }
 
-TEST(Protocol, EmptyPayloadIsValid) {
+TEST(Protocol, EmptyPayloadIsValid)
+{
     auto bytes = serializeBinaryFrame(StreamId::Mic, 2.0, nullptr, 0);
     auto frame = parseBinaryFrame(bytes.data(), bytes.size());
     ASSERT_TRUE(frame.has_value());
     EXPECT_TRUE(frame->samples.empty());
 }
 
-TEST(Protocol, ParsesHello) {
+TEST(Protocol, ParsesHello)
+{
     auto h = parseHello(
         R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
     ASSERT_TRUE(h.has_value());
@@ -54,14 +59,16 @@ TEST(Protocol, ParsesHello) {
     EXPECT_EQ(h->format, "s16le");
 }
 
-TEST(Protocol, RejectsNonHelloAndGarbage) {
+TEST(Protocol, RejectsNonHelloAndGarbage)
+{
     EXPECT_FALSE(parseHello(R"({"type":"bye"})").has_value());
     EXPECT_FALSE(parseHello("not json at all").has_value());
     EXPECT_TRUE(isBye(R"({"type":"bye"})"));
     EXPECT_FALSE(isBye(R"({"type":"hello"})"));
 }
 
-TEST(Protocol, BuildsStatusJson) {
+TEST(Protocol, BuildsStatusJson)
+{
     auto s = buildStatusJson("sherpa", "cpu", "streaming", "idle");
     EXPECT_NE(s.find("\"type\":\"status\""), std::string::npos);
     EXPECT_NE(s.find("\"engine\":\"sherpa\""), std::string::npos);

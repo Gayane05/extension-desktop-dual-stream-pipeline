@@ -6,7 +6,8 @@
 namespace dsp {
 
 static bool takeValue(int argc, const char* const* argv, int& i, std::string& out,
-                      std::string& error) {
+                      std::string& error)
+{
     if (i + 1 >= argc)
     {
         error = std::string(argv[i]) + " requires a value";
@@ -16,7 +17,8 @@ static bool takeValue(int argc, const char* const* argv, int& i, std::string& ou
     return true;
 }
 
-std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error) {
+std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error)
+{
     Config c;
     for (int i = 1; i < argc; ++i)
     {
@@ -78,7 +80,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
             if (!takeValue(argc, argv, i, v, error))
                 return std::nullopt;
             try
-            { c.endpointSilenceSec = std::stod(v); }
+            {
+                c.endpointSilenceSec = std::stod(v);
+            }
             catch (...)
             {
                 error = "invalid endpoint-silence";
@@ -99,7 +103,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
             if (!takeValue(argc, argv, i, v, error))
                 return std::nullopt;
             try
-            { c.durationSec = std::stod(v); }
+            {
+                c.durationSec = std::stod(v);
+            }
             catch (...)
             {
                 error = "invalid duration";

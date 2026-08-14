@@ -10,7 +10,8 @@
 
 using namespace dsp;
 
-static std::string modelDir() {
+static std::string modelDir()
+{
     // tests run from build tree; models live in <repo>/desktop/models
     for (auto p : {"models", "../models", "../../models", "../../../models", "../../../../models"})
     {
@@ -20,7 +21,8 @@ static std::string modelDir() {
     return "";
 }
 
-TEST(SherpaEngine, StartFailsWithMissingModel) {
+TEST(SherpaEngine, StartFailsWithMissingModel)
+{
     SherpaEngine eng({.modelDir = "Z:/definitely/missing", .provider = "cpu"},
                      [](const TranscriptEvent&) {});
     std::string err;
@@ -28,7 +30,8 @@ TEST(SherpaEngine, StartFailsWithMissingModel) {
     EXPECT_FALSE(err.empty());
 }
 
-TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents) {
+TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
+{
     auto dir = modelDir();
     if (dir.empty())
         GTEST_SKIP() << "model not downloaded (scripts/download-model.ps1)";

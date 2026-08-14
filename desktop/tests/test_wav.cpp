@@ -7,7 +7,8 @@
 
 using namespace dsp;
 
-static std::string writeTinyWav(int sampleRate, const std::vector<int16_t>& pcm) {
+static std::string writeTinyWav(int sampleRate, const std::vector<int16_t>& pcm)
+{
     std::string path = std::string(::testing::TempDir()) + "tiny.wav";
     std::ofstream f(path, std::ios::binary);
     auto w32 = [&](uint32_t v) { f.write(reinterpret_cast<char*>(&v), 4); };
@@ -30,7 +31,8 @@ static std::string writeTinyWav(int sampleRate, const std::vector<int16_t>& pcm)
     return path;
 }
 
-TEST(Wav, ReadsPcm16Mono) {
+TEST(Wav, ReadsPcm16Mono)
+{
     std::vector<int16_t> pcm{1, -1, 32767, -32768};
     auto path = writeTinyWav(16000, pcm);
     std::string err;
@@ -40,7 +42,8 @@ TEST(Wav, ReadsPcm16Mono) {
     EXPECT_EQ(wav->samples, pcm);
 }
 
-TEST(Wav, RejectsMissingFile) {
+TEST(Wav, RejectsMissingFile)
+{
     std::string err;
     EXPECT_FALSE(readWavPcm16Mono("Z:/nope.wav", err));
 }
@@ -49,7 +52,8 @@ TEST(Wav, RejectsMissingFile) {
 // declares fewer than 16 bytes used to be read into a correctly-sized
 // (undersized) buffer, then memcpy'd from fixed offsets up to +14 -- reading
 // past the end of that buffer. The reader must reject it instead.
-TEST(Wav, RejectsShortFmtChunk) {
+TEST(Wav, RejectsShortFmtChunk)
+{
     std::string path = std::string(::testing::TempDir()) + "short_fmt.wav";
     std::ofstream f(path, std::ios::binary);
     auto w32 = [&](uint32_t v) { f.write(reinterpret_cast<char*>(&v), 4); };
@@ -78,7 +82,8 @@ TEST(Wav, RejectsShortFmtChunk) {
 // actually present in the file used to be silently zero-padded by
 // std::ifstream::read's short-read semantics; the reader must detect the
 // truncation and fail instead of returning partially-garbage audio.
-TEST(Wav, RejectsTruncatedDataChunk) {
+TEST(Wav, RejectsTruncatedDataChunk)
+{
     std::vector<int16_t> pcm{1, -1, 32767, -32768};
     auto path = writeTinyWav(16000, pcm);
     // Rewrite the data-chunk size field (RIFF header at offset 4, "fmt "
