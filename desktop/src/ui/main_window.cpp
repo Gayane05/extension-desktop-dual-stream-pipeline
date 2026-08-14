@@ -95,6 +95,20 @@ void destroyDevice()
     }
 }
 
+// DestroyWindow triggers WM_DESTROY -> PostQuitMessage, and that WM_QUIT sits
+// in the THREAD's message queue -- not the window's. Left there, it instantly
+// terminates the next window's message loop (setup chooser -> main window
+// handoff, and main -> chooser via the Settings button). Drain leftover
+// messages after tearing a window down so each window starts with a clean
+// queue.
+void drainThreadMessages()
+{
+    MSG m;
+    while (::PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE))
+    {
+    }
+}
+
 // Shared by the main window and the setup chooser (runSetupUi) so both carry
 // the same dark-slate/indigo theme and Segoe UI font. Must run after
 // ImGui::CreateContext() and before the first frame.
@@ -359,6 +373,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     destroyDevice();
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    drainThreadMessages();
     return exitCode;
 }
 
@@ -431,8 +446,8 @@ bool runSetupUi(Config& cfg)
 
         ImGui::Text("How should speech-to-text run?");
         ImGui::TextColored(dimColor,
-                           "Your choice is saved to settings.json next to the exe and used on "
-                           "every start. Change it any time via the Settings button.");
+                           "Your choice is saved and applied automatically on every start. "
+                           "Change it any time via the Settings button.");
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -490,6 +505,7 @@ bool runSetupUi(Config& cfg)
     destroyDevice();
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    drainThreadMessages();
     return chosen;
 }
 
