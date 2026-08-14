@@ -27,7 +27,9 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
 }
 
 static std::atomic<bool> g_stop{false};
-static void onSignal(int) { g_stop = true; }
+static void onSignal(int) {
+    g_stop = true;
+}
 
 static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
                                                    dsp::TranscriptCallback cb) {
@@ -36,7 +38,8 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     opts.provider = cfg.provider;
     opts.decoding = cfg.decoding;
     opts.endpointSilenceSec = cfg.endpointSilenceSec;
-    if (const char* k = std::getenv("DEEPGRAM_API_KEY")) opts.deepgramKey = k;
+    if (const char* k = std::getenv("DEEPGRAM_API_KEY"))
+        opts.deepgramKey = k;
     if (cfg.engine == "deepgram")
         return std::make_unique<dsp::DeepgramEngine>(opts, std::move(cb));
     return std::make_unique<dsp::SherpaEngine>(opts, std::move(cb));
@@ -52,12 +55,16 @@ static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev) {
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> w(sb);
     w.StartObject();
-    w.Key("stream"); w.String(dsp::streamName(ev.stream));
-    w.Key("final"); w.Bool(ev.isFinal);
-    w.Key("ts"); w.Double(ev.tsMs);
+    w.Key("stream");
+    w.String(dsp::streamName(ev.stream));
+    w.Key("final");
+    w.Bool(ev.isFinal);
+    w.Key("ts");
+    w.Double(ev.tsMs);
     // Use the (data, length) overload rather than c_str(): text containing an
     // embedded NUL would otherwise be silently truncated at the first one.
-    w.Key("text"); w.String(ev.text.data(), static_cast<rapidjson::SizeType>(ev.text.size()));
+    w.Key("text");
+    w.String(ev.text.data(), static_cast<rapidjson::SizeType>(ev.text.size()));
     w.EndObject();
     return sb.GetString();
 }
@@ -65,18 +72,24 @@ static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev) {
 int main(int argc, char** argv) {
     std::string err;
     auto cfg = dsp::parseArgs(argc, argv, err);
-    if (!cfg) { std::fprintf(stderr, "error: %s\n", err.c_str()); return 2; }
+    if (!cfg)
+    {
+        std::fprintf(stderr, "error: %s\n", err.c_str());
+        return 2;
+    }
 
     dsp::TranscriptModel model;
     auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& ev) {
         model.apply(ev);
-        if (cfg->headless) {
+        if (cfg->headless)
+        {
             FILE* out = ev.isFinal ? stdout : stderr;
             std::fprintf(out, "%s\n", buildTranscriptLine(ev).c_str());
             std::fflush(out);
         }
     });
-    if (!engine->start(err)) {
+    if (!engine->start(err))
+    {
         std::fprintf(stderr, "engine error: %s\n", err.c_str());
 #ifdef _WIN32
         // Console-only output is easy to miss when the app was launched by
@@ -84,7 +97,8 @@ int main(int argc, char** argv) {
         // the missing-model download command) in a message box too, but only
         // when we'd otherwise have opened a window -- headless runs (CI, the
         // E2E script) must stay console-only.
-        if (!cfg->headless) {
+        if (!cfg->headless)
+        {
             MessageBoxA(nullptr, err.c_str(), "Dual-Stream Transcriber - engine failed to start",
                         MB_OK | MB_ICONERROR);
         }
@@ -93,14 +107,19 @@ int main(int argc, char** argv) {
     }
 
     dsp::Pipeline pipeline(*cfg, *engine);
-    if (!pipeline.start(err)) { std::fprintf(stderr, "server error: %s\n", err.c_str()); return 4; }
-    std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n",
-                 cfg->port, engine->name().c_str(), engine->effectiveProvider().c_str());
+    if (!pipeline.start(err))
+    {
+        std::fprintf(stderr, "server error: %s\n", err.c_str());
+        return 4;
+    }
+    std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n", cfg->port,
+                 engine->name().c_str(), engine->effectiveProvider().c_str());
 
-    if (cfg->headless) {
+    if (cfg->headless)
+    {
         std::signal(SIGINT, onSignal);
-        auto deadline = std::chrono::steady_clock::now() +
-                        std::chrono::duration<double>(cfg->durationSec);
+        auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::duration<double>(cfg->durationSec);
         // Status otherwise only pushes on hello/clientGone, which leaves a
         // long-lived headless client's view stale for the whole run. Push
         // ~1x/second (every 10th 100ms tick) so a connected client's status
@@ -108,10 +127,11 @@ int main(int argc, char** argv) {
         // goes to WS clients only (WsServer::broadcast), never to stdout, so
         // it cannot corrupt the JSONL transcript stream the E2E script reads.
         int tick = 0;
-        while (!g_stop && (cfg->durationSec <= 0 ||
-                           std::chrono::steady_clock::now() < deadline)) {
+        while (!g_stop && (cfg->durationSec <= 0 || std::chrono::steady_clock::now() < deadline))
+        {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            if (++tick % 10 == 0) pipeline.pushStatus();
+            if (++tick % 10 == 0)
+                pipeline.pushStatus();
         }
         pipeline.stop();
         engine->stop();

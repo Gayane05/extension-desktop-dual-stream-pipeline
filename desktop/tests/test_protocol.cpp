@@ -22,9 +22,9 @@ TEST(Protocol, RoundTripBinaryFrame) {
 TEST(Protocol, RejectsTruncatedAndBadTag) {
     std::vector<int16_t> pcm{1};
     auto ok = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
-    EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());     // shorter than header
-    EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());    // odd payload length
-    ok[0] = 7;                                                    // unknown tag
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());   // shorter than header
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());  // odd payload length
+    ok[0] = 7;                                                  // unknown tag
     EXPECT_FALSE(parseBinaryFrame(ok.data(), ok.size()).has_value());
 }
 
@@ -45,7 +45,8 @@ TEST(Protocol, EmptyPayloadIsValid) {
 }
 
 TEST(Protocol, ParsesHello) {
-    auto h = parseHello(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
+    auto h = parseHello(
+        R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
     ASSERT_TRUE(h.has_value());
     EXPECT_EQ(h->version, 1);
     EXPECT_EQ(h->sampleRate, 16000);

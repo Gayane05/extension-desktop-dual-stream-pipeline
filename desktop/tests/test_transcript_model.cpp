@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
-#include <thread>
+
 #include <atomic>
+#include <thread>
+
 #include "app/transcript_model.h"
 
 using namespace dsp;
@@ -78,7 +80,11 @@ TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke) {
     });
     std::atomic<bool> done{false};
     std::thread reader([&] {
-        while (!done) { auto s = m.snapshot(); (void)s; }
+        while (!done)
+        {
+            auto s = m.snapshot();
+            (void)s;
+        }
     });
     micWriter.join();
     tabWriter.join();
@@ -86,5 +92,6 @@ TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke) {
     reader.join();
     auto s = m.snapshot();
     EXPECT_EQ(s.size(), kN / 10 * 2u);  // 500 finals per lane
-    for (size_t i = 1; i < s.size(); ++i) EXPECT_LE(s[i-1].tsMs, s[i].tsMs);  // sorted invariant held
+    for (size_t i = 1; i < s.size(); ++i)
+        EXPECT_LE(s[i - 1].tsMs, s[i].tsMs);  // sorted invariant held
 }

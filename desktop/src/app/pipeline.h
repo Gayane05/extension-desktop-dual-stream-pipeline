@@ -3,6 +3,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+
 #include "app/config.h"
 #include "core/spsc_ring.h"
 #include "net/ws_server.h"
@@ -21,7 +22,8 @@ public:
     // badge doesn't lie forever once a client disconnects mid-stream.
     std::string streamState(StreamId s) const {
         const int64_t last = lastFrameMs_[static_cast<int>(s)].load();
-        if (last == 0) return "idle";
+        if (last == 0)
+            return "idle";
         const auto now = std::chrono::steady_clock::now().time_since_epoch();
         const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
         return (nowMs - last) <= 2000 ? "streaming" : "idle";

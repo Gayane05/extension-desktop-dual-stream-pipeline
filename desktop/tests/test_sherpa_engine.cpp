@@ -12,8 +12,10 @@ using namespace dsp;
 
 static std::string modelDir() {
     // tests run from build tree; models live in <repo>/desktop/models
-    for (auto p : {"models", "../models", "../../models", "../../../models", "../../../../models"}) {
-        if (std::filesystem::exists(p)) return p;
+    for (auto p : {"models", "../models", "../../models", "../../../models", "../../../../models"})
+    {
+        if (std::filesystem::exists(p))
+            return p;
     }
     return "";
 }
@@ -28,11 +30,14 @@ TEST(SherpaEngine, StartFailsWithMissingModel) {
 
 TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents) {
     auto dir = modelDir();
-    if (dir.empty()) GTEST_SKIP() << "model not downloaded (scripts/download-model.ps1)";
+    if (dir.empty())
+        GTEST_SKIP() << "model not downloaded (scripts/download-model.ps1)";
     std::mutex mu;
     std::vector<TranscriptEvent> events;
-    SherpaEngine eng({.modelDir = dir, .provider = "cpu"},
-                     [&](const TranscriptEvent& e) { std::lock_guard lk(mu); events.push_back(e); });
+    SherpaEngine eng({.modelDir = dir, .provider = "cpu"}, [&](const TranscriptEvent& e) {
+        std::lock_guard lk(mu);
+        events.push_back(e);
+    });
     std::string err;
     ASSERT_TRUE(eng.start(err)) << err;
     std::vector<int16_t> silence(1600, 0);
@@ -40,5 +45,6 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents) {
         eng.feed(StreamId::Mic, silence.data(), silence.size(), i * 100.0);
     eng.stop();
     std::lock_guard lk(mu);
-    for (auto& e : events) EXPECT_TRUE(e.text.empty() || !e.isFinal);  // no phantom finals
+    for (auto& e : events)
+        EXPECT_TRUE(e.text.empty() || !e.isFinal);  // no phantom finals
 }

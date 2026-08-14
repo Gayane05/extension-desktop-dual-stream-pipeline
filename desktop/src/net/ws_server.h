@@ -6,9 +6,12 @@
 #include <mutex>
 #include <set>
 #include <string>
+
 #include "core/protocol.h"
 
-namespace ix { class WebSocketServer; }
+namespace ix {
+class WebSocketServer;
+}
 
 namespace dsp {
 
@@ -39,10 +42,10 @@ private:
     // rather than being allowed to feed audio alongside the first.
     std::mutex helloMu_;
     std::map<std::string, bool> helloSeen_;
-    std::string activeId_;          // id of the currently accepted client; empty if none
+    std::string activeId_;            // id of the currently accepted client; empty if none
     std::set<std::string> rejected_;  // ids closed by us for "already connected"; suppresses
-                                       // their Close event from firing onClientGone (it isn't
-                                       // the active client going away)
+                                      // their Close event from firing onClientGone (it isn't
+                                      // the active client going away)
 };
 
 }  // namespace dsp

@@ -1,5 +1,6 @@
 // desktop/tests/test_deepgram_parse.cpp
 #include <gtest/gtest.h>
+
 #include "stt/deepgram_engine.h"
 
 using namespace dsp;
@@ -35,6 +36,8 @@ TEST(DeepgramParse, IgnoresMetadataEmptyAndGarbage) {
     EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic, "{}", 0.0));
     EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic, "garbage", 0.0));
     // empty transcript (silence) produces no event
-    EXPECT_FALSE(parseDeepgramMessage(StreamId::Mic,
-        R"({"type":"Results","is_final":false,"channel":{"alternatives":[{"transcript":""}]}})", 0.0));
+    EXPECT_FALSE(parseDeepgramMessage(
+        StreamId::Mic,
+        R"({"type":"Results","is_final":false,"channel":{"alternatives":[{"transcript":""}]}})",
+        0.0));
 }

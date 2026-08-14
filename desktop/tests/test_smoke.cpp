@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "core/version.h"
 
 TEST(Smoke, VersionIsSet) {

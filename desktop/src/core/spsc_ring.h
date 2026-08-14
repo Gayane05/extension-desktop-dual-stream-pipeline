@@ -16,7 +16,8 @@ public:
     bool tryPush(T&& v) {
         const size_t head = head_.load(std::memory_order_relaxed);
         const size_t next = (head + 1) % buf_.size();
-        if (next == tail_.load(std::memory_order_acquire)) return false;  // full
+        if (next == tail_.load(std::memory_order_acquire))
+            return false;  // full
         buf_[head] = std::move(v);
         head_.store(next, std::memory_order_release);
         sem_.release();
@@ -24,11 +25,14 @@ public:
     }
 
     std::optional<T> popWait() {
-        for (;;) {
+        for (;;)
+        {
             sem_.acquire();
             T v;
-            if (tryPop(v)) return v;
-            if (closed_.load(std::memory_order_acquire)) return std::nullopt;
+            if (tryPop(v))
+                return v;
+            if (closed_.load(std::memory_order_acquire))
+                return std::nullopt;
         }
     }
 
@@ -46,7 +50,8 @@ public:
 private:
     bool tryPop(T& out) {
         const size_t tail = tail_.load(std::memory_order_relaxed);
-        if (tail == head_.load(std::memory_order_acquire)) return false;
+        if (tail == head_.load(std::memory_order_acquire))
+            return false;
         out = std::move(buf_[tail]);
         tail_.store((tail + 1) % buf_.size(), std::memory_order_release);
         return true;

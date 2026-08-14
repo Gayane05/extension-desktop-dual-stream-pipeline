@@ -3,9 +3,12 @@
 #include <memory>
 #include <optional>
 #include <string>
+
 #include "stt/stt_engine.h"
 
-namespace ix { class WebSocket; }
+namespace ix {
+class WebSocket;
+}
 
 namespace dsp {
 

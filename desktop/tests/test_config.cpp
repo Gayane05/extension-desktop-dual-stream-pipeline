@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+
 #include "app/config.h"
 
 using namespace dsp;
@@ -22,10 +23,10 @@ TEST(Config, Defaults) {
 
 TEST(Config, ParsesAllFlags) {
     std::string err;
-    auto c = parse({"--engine", "deepgram", "--provider", "cuda", "--port", "9000",
-                    "--model-dir", "D:/models", "--decoding", "greedy",
-                    "--endpoint-silence", "0.5",
-                    "--headless", "--duration", "12.5"}, err);
+    auto c = parse(
+        {"--engine", "deepgram", "--provider", "cuda", "--port", "9000", "--model-dir", "D:/models",
+         "--decoding", "greedy", "--endpoint-silence", "0.5", "--headless", "--duration", "12.5"},
+        err);
     ASSERT_TRUE(c) << err;
     EXPECT_EQ(c->engine, "deepgram");
     EXPECT_EQ(c->provider, "cuda");
@@ -43,8 +44,8 @@ TEST(Config, RejectsBadValues) {
     EXPECT_FALSE(parse({"--provider", "opencl"}, err));
     EXPECT_FALSE(parse({"--decoding", "fast"}, err));
     EXPECT_FALSE(parse({"--endpoint-silence", "abc"}, err));
-    EXPECT_FALSE(parse({"--endpoint-silence", "0.1"}, err));   // below range
-    EXPECT_FALSE(parse({"--endpoint-silence", "6"}, err));     // above range
+    EXPECT_FALSE(parse({"--endpoint-silence", "0.1"}, err));  // below range
+    EXPECT_FALSE(parse({"--endpoint-silence", "6"}, err));    // above range
     EXPECT_FALSE(parse({"--port", "notanumber"}, err));
     EXPECT_FALSE(parse({"--port"}, err));  // missing value
     EXPECT_FALSE(parse({"--unknown-flag"}, err));
@@ -55,8 +56,8 @@ TEST(Config, RejectsOutOfRangePorts) {
     EXPECT_FALSE(parse({"--port", "0"}, err));
     EXPECT_FALSE(parse({"--port", "-1"}, err));
     EXPECT_FALSE(parse({"--port", "65536"}, err));
-    EXPECT_TRUE(parse({"--port", "65535"}, err));   // boundary: valid
-    EXPECT_TRUE(parse({"--port", "1"}, err));       // boundary: valid
+    EXPECT_TRUE(parse({"--port", "65535"}, err));  // boundary: valid
+    EXPECT_TRUE(parse({"--port", "1"}, err));      // boundary: valid
 }
 
 TEST(Config, RejectsPartialNumericPort) {

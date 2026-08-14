@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
+
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+
 #include "ui/save_transcript.h"
 
 using namespace dsp;

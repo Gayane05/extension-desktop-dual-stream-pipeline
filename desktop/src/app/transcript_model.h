@@ -3,12 +3,23 @@
 #include <optional>
 #include <string>
 #include <vector>
+
 #include "core/protocol.h"
 
 namespace dsp {
 
-struct TranscriptEvent { StreamId stream; std::string text; bool isFinal; double tsMs; };
-struct Utterance { StreamId stream; std::string text; bool isFinal; double tsMs; };
+struct TranscriptEvent {
+    StreamId stream;
+    std::string text;
+    bool isFinal;
+    double tsMs;
+};
+struct Utterance {
+    StreamId stream;
+    std::string text;
+    bool isFinal;
+    double tsMs;
+};
 
 class TranscriptModel {
 public:
