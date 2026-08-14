@@ -30,8 +30,10 @@
 #include "stt/sherpa_engine.h"
 
 namespace dsp {
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
-          const Config& cfg);  // implemented in desktop/src/ui/main_window.cpp
+// Both implemented in desktop/src/ui/main_window.cpp. runUi returns
+// kRunUiRestartSetup when the Settings button asks for the mode chooser.
+int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg);
+bool runSetupUi(Config& cfg);
 }
 
 static std::atomic<bool> g_stop{false};
@@ -118,10 +120,30 @@ static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev)
     return sb.GetString();
 }
 
+// settings.json lives next to the exe (portable-app pattern) so double-click
+// and command-line launches share the same persisted choice regardless of
+// cwd. Falls back to a cwd-relative name if the exe path cannot be resolved.
+static std::string settingsFilePath()
+{
+#ifdef _WIN32
+    char exePath[MAX_PATH]{};
+    if (GetModuleFileNameA(nullptr, exePath, MAX_PATH) != 0)
+    {
+        namespace fs = std::filesystem;
+        return (fs::path(exePath).parent_path() / "settings.json").string();
+    }
+#endif
+    return "settings.json";
+}
+
 int main(int argc, char** argv)
 {
     std::string err;
-    auto cfg = dsp::parseArgs(argc, argv, err);
+    // Config resolution order: defaults -> settings.json -> CLI flags.
+    dsp::Config base;
+    const std::string settingsPath = settingsFilePath();
+    const bool haveSettings = dsp::loadSettingsFile(settingsPath, base);
+    auto cfg = dsp::parseArgs(argc, argv, err, base);
     if (!cfg)
     {
         std::fprintf(stderr, "error: %s\n", err.c_str());
@@ -130,69 +152,109 @@ int main(int argc, char** argv)
 
     resolveDefaultModelDir(*cfg);
 
-    dsp::TranscriptModel model;
-    auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& ev) {
-        model.apply(ev);
+    // First-run chooser: GUI launches with no saved settings and no explicit
+    // --engine/--provider get asked how they want to run. Headless runs never
+    // see UI and just use the resolved config (scripted runs stay scripted).
+    bool showSetup = !cfg->headless && !haveSettings && !cfg->engineOrProviderExplicit;
+
+    // Each loop iteration is one full engine lifetime. The Settings button
+    // exits runUi with kRunUiRestartSetup; we then re-run the chooser, persist
+    // the new choice, and rebuild engine + pipeline from scratch.
+    for (;;)
+    {
+        if (showSetup)
+        {
+            if (!dsp::runSetupUi(*cfg))
+            {
+                return 0;  // chooser closed without choosing = quit
+            }
+            if (!dsp::saveSettingsFile(settingsPath, *cfg))
+            {
+                std::fprintf(stderr, "warning: could not write %s\n", settingsPath.c_str());
+            }
+            showSetup = false;
+        }
+
+        dsp::TranscriptModel model;
+        auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& ev) {
+            model.apply(ev);
+            if (cfg->headless)
+            {
+                FILE* out = ev.isFinal ? stdout : stderr;
+                std::fprintf(out, "%s\n", buildTranscriptLine(ev).c_str());
+                std::fflush(out);
+            }
+        });
+        if (!engine->start(err))
+        {
+            std::fprintf(stderr, "engine error: %s\n", err.c_str());
+#ifdef _WIN32
+            // Console-only output is easy to miss when the app was launched by
+            // double-click (no attached console). Surface the exact error (e.g.
+            // the missing-model download command) in a message box too, but only
+            // when we'd otherwise have opened a window -- headless runs (CI, the
+            // E2E script) must stay console-only.
+            if (!cfg->headless)
+            {
+                MessageBoxA(nullptr, err.c_str(),
+                            "Dual-Stream Transcriber - engine failed to start",
+                            MB_OK | MB_ICONERROR);
+            }
+#endif
+            if (!cfg->headless)
+            {
+                // Give the user a way out (e.g. picked Deepgram without a key):
+                // reopen the chooser instead of dying.
+                err.clear();
+                showSetup = true;
+                continue;
+            }
+            return 3;
+        }
+
+        dsp::Pipeline pipeline(*cfg, *engine);
+        if (!pipeline.start(err))
+        {
+            std::fprintf(stderr, "server error: %s\n", err.c_str());
+            return 4;
+        }
+        std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n", cfg->port,
+                     engine->name().c_str(), engine->effectiveProvider().c_str());
+
         if (cfg->headless)
         {
-            FILE* out = ev.isFinal ? stdout : stderr;
-            std::fprintf(out, "%s\n", buildTranscriptLine(ev).c_str());
-            std::fflush(out);
-        }
-    });
-    if (!engine->start(err))
-    {
-        std::fprintf(stderr, "engine error: %s\n", err.c_str());
-#ifdef _WIN32
-        // Console-only output is easy to miss when the app was launched by
-        // double-click (no attached console). Surface the exact error (e.g.
-        // the missing-model download command) in a message box too, but only
-        // when we'd otherwise have opened a window -- headless runs (CI, the
-        // E2E script) must stay console-only.
-        if (!cfg->headless)
-        {
-            MessageBoxA(nullptr, err.c_str(), "Dual-Stream Transcriber - engine failed to start",
-                        MB_OK | MB_ICONERROR);
-        }
-#endif
-        return 3;
-    }
-
-    dsp::Pipeline pipeline(*cfg, *engine);
-    if (!pipeline.start(err))
-    {
-        std::fprintf(stderr, "server error: %s\n", err.c_str());
-        return 4;
-    }
-    std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n", cfg->port,
-                 engine->name().c_str(), engine->effectiveProvider().c_str());
-
-    if (cfg->headless)
-    {
-        std::signal(SIGINT, onSignal);
-        auto deadline =
-            std::chrono::steady_clock::now() + std::chrono::duration<double>(cfg->durationSec);
-        // Status otherwise only pushes on hello/clientGone, which leaves a
-        // long-lived headless client's view stale for the whole run. Push
-        // ~1x/second (every 10th 100ms tick) so a connected client's status
-        // (e.g. dropped-chunk counters, stream state) stays current. This
-        // goes to WS clients only (WsServer::broadcast), never to stdout, so
-        // it cannot corrupt the JSONL transcript stream the E2E script reads.
-        int tick = 0;
-        while (!g_stop && (cfg->durationSec <= 0 || std::chrono::steady_clock::now() < deadline))
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            if (++tick % 10 == 0)
+            std::signal(SIGINT, onSignal);
+            auto deadline =
+                std::chrono::steady_clock::now() + std::chrono::duration<double>(cfg->durationSec);
+            // Status otherwise only pushes on hello/clientGone, which leaves a
+            // long-lived headless client's view stale for the whole run. Push
+            // ~1x/second (every 10th 100ms tick) so a connected client's status
+            // (e.g. dropped-chunk counters, stream state) stays current. This
+            // goes to WS clients only (WsServer::broadcast), never to stdout, so
+            // it cannot corrupt the JSONL transcript stream the E2E script reads.
+            int tick = 0;
+            while (!g_stop &&
+                   (cfg->durationSec <= 0 || std::chrono::steady_clock::now() < deadline))
             {
-                pipeline.pushStatus();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (++tick % 10 == 0)
+                {
+                    pipeline.pushStatus();
+                }
             }
+            pipeline.stop();
+            engine->stop();
+            return 0;
         }
+
+        const int rc = dsp::runUi(pipeline, model, *engine, *cfg);
         pipeline.stop();
         engine->stop();
-        return 0;
+        if (rc == dsp::kRunUiRestartSetup)
+        {
+            showSetup = true;
+            continue;
+        }
+        return rc;
     }
-    int rc = dsp::runUi(pipeline, model, *engine, *cfg);
-    pipeline.stop();
-    engine->stop();
-    return rc;
 }

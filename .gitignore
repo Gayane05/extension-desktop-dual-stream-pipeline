@@ -26,3 +26,6 @@ imgui.ini
 
 # transcript saved from the UI at runtime
 transcript.txt
+
+# per-machine mode choice written by the GUI's first-run chooser
+settings.json

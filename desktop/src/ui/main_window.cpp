@@ -95,6 +95,64 @@ void destroyDevice()
     }
 }
 
+// Shared by the main window and the setup chooser (runSetupUi) so both carry
+// the same dark-slate/indigo theme and Segoe UI font. Must run after
+// ImGui::CreateContext() and before the first frame.
+void applyThemeAndFont()
+{
+    ImGui::StyleColorsDark();
+    // Larger click targets: FramePadding sizes buttons/checkboxes (default is
+    // a cramped 4x3); a touch more rounding keeps them looking intentional.
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.FramePadding = ImVec2(14.0f, 8.0f);
+    style.FrameRounding = 5.0f;
+    style.ChildRounding = 5.0f;
+    style.GrabRounding = 5.0f;
+    style.ScrollbarRounding = 5.0f;
+    style.ItemSpacing = ImVec2(10.0f, 8.0f);
+    style.WindowPadding = ImVec2(14.0f, 12.0f);
+    // Cohesive dark-slate palette with indigo controls, replacing the stock
+    // grey theme. Transcript lane colors (blue/orange) live in runUi().
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_WindowBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0.105f, 0.115f, 0.145f, 1.00f);
+    colors[ImGuiCol_Text] = ImVec4(0.92f, 0.93f, 0.95f, 1.00f);
+    colors[ImGuiCol_Border] = ImVec4(0.25f, 0.27f, 0.35f, 0.50f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.23f, 0.34f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.26f, 0.30f, 0.44f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.31f, 0.36f, 0.53f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.27f, 0.32f, 0.52f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.34f, 0.40f, 0.65f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.49f, 0.78f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.62f, 0.72f, 1.00f, 1.00f);
+    colors[ImGuiCol_Separator] = ImVec4(0.25f, 0.27f, 0.35f, 0.60f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.28f, 0.31f, 0.42f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.40f, 0.55f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.44f, 0.50f, 0.70f, 1.00f);
+    // Replace ImGui's 13px bitmap default with a larger, softer system font.
+    // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
+    // neither loads (non-standard Windows install), scale the bitmap default
+    // rather than staying tiny.
+    ImGuiIO& io = ImGui::GetIO();
+    const char* windir = std::getenv("WINDIR");
+    const std::string fontBase = std::string(windir ? windir : "C:\\Windows") + "\\Fonts\\";
+    ImFont* uiFont = nullptr;
+    for (const char* fontFile : {"SegUIVar.ttf", "segoeui.ttf"})
+    {
+        const std::string path = fontBase + fontFile;
+        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), 20.0f);
+        if (uiFont)
+        {
+            break;
+        }
+    }
+    if (!uiFont)
+    {
+        io.FontGlobalScale = 1.5f;
+    }
+}
+
 LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 {
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, w, l))
@@ -153,57 +211,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    // Larger click targets: FramePadding sizes buttons/checkboxes (default is
-    // a cramped 4x3); a touch more rounding keeps them looking intentional.
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.FramePadding = ImVec2(14.0f, 8.0f);
-    style.FrameRounding = 5.0f;
-    style.ChildRounding = 5.0f;
-    style.GrabRounding = 5.0f;
-    style.ScrollbarRounding = 5.0f;
-    style.ItemSpacing = ImVec2(10.0f, 8.0f);
-    style.WindowPadding = ImVec2(14.0f, 12.0f);
-    // Cohesive dark-slate palette with indigo controls, replacing the stock
-    // grey theme. Transcript lane colors (blue/orange) are set further down.
-    ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
-    colors[ImGuiCol_ChildBg] = ImVec4(0.105f, 0.115f, 0.145f, 1.00f);
-    colors[ImGuiCol_Text] = ImVec4(0.92f, 0.93f, 0.95f, 1.00f);
-    colors[ImGuiCol_Border] = ImVec4(0.25f, 0.27f, 0.35f, 0.50f);
-    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.23f, 0.34f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.26f, 0.30f, 0.44f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.31f, 0.36f, 0.53f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.27f, 0.32f, 0.52f, 1.00f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.34f, 0.40f, 0.65f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.49f, 0.78f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.62f, 0.72f, 1.00f, 1.00f);
-    colors[ImGuiCol_Separator] = ImVec4(0.25f, 0.27f, 0.35f, 0.60f);
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.28f, 0.31f, 0.42f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.40f, 0.55f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.44f, 0.50f, 0.70f, 1.00f);
-    // Replace ImGui's 13px bitmap default with a larger, softer system font.
-    // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
-    // neither loads (non-standard Windows install), scale the bitmap default
-    // rather than staying tiny.
-    ImGuiIO& io = ImGui::GetIO();
-    const char* windir = std::getenv("WINDIR");
-    const std::string fontBase = std::string(windir ? windir : "C:\\Windows") + "\\Fonts\\";
-    ImFont* uiFont = nullptr;
-    for (const char* fontFile : {"SegUIVar.ttf", "segoeui.ttf"})
-    {
-        const std::string path = fontBase + fontFile;
-        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), 20.0f);
-        if (uiFont)
-        {
-            break;
-        }
-    }
-    if (!uiFont)
-    {
-        io.FontGlobalScale = 1.5f;
-    }
+    applyThemeAndFont();
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
@@ -215,6 +223,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     std::string saveStatus;        // empty when nothing to report
     double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after
     bool done = false;
+    int exitCode = 0;  // kRunUiRestartSetup when the Settings button was used
     // Status otherwise only pushes to the extension on hello/clientGone,
     // which leaves the popup showing stale (or initial "idle/idle") state
     // for the rest of a session. Push ~1x/second from the render loop too.
@@ -299,6 +308,14 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         }
         ImGui::SameLine();
         ImGui::Checkbox("Autoscroll", &autoscroll);
+        ImGui::SameLine();
+        // Reopens the first-run mode chooser: this window closes, main()
+        // rebuilds the engine with whatever the user picks there.
+        if (ImGui::Button("Settings"))
+        {
+            exitCode = kRunUiRestartSetup;
+            done = true;
+        }
         ImGui::Separator();
 
         // --- transcript ---
@@ -342,7 +359,138 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     destroyDevice();
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-    return 0;
+    return exitCode;
+}
+
+// First-run / Settings mode chooser. Runs its own small window with the same
+// theme, BEFORE any engine exists (so it can also be re-shown between engine
+// restarts). Writes the choice into cfg.engine/cfg.provider and returns true;
+// returns false when the user closes the window without choosing (main()
+// treats that as "exit the app"). The caller persists the choice.
+bool runSetupUi(Config& cfg)
+{
+    WNDCLASSEXW wc = {sizeof(wc),
+                      CS_CLASSDC,
+                      wndProc,
+                      0,
+                      0,
+                      ::GetModuleHandleW(nullptr),
+                      nullptr,
+                      nullptr,
+                      nullptr,
+                      nullptr,
+                      L"DualStreamTranscriberSetup",
+                      nullptr};
+    ::RegisterClassExW(&wc);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Transcriber Setup", WS_OVERLAPPEDWINDOW, 200,
+                                200, 720, 480, nullptr, nullptr, wc.hInstance, nullptr);
+    if (!createDevice(hwnd))
+    {
+        ::DestroyWindow(hwnd);
+        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        return false;
+    }
+    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::UpdateWindow(hwnd);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    applyThemeAndFont();
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(g_device, g_context);
+
+    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);
+    const ImVec4 warnColor(1.0f, 0.75f, 0.35f, 1.0f);
+    bool chosen = false;
+    bool done = false;
+    while (!done)
+    {
+        MSG msg;
+        while (::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            ::TranslateMessage(&msg);
+            ::DispatchMessageW(&msg);
+            if (msg.message == WM_QUIT)
+            {
+                done = true;
+            }
+        }
+        if (done)
+        {
+            break;
+        }
+
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(vp->WorkPos);
+        ImGui::SetNextWindowSize(vp->WorkSize);
+        ImGui::Begin("setup", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
+
+        ImGui::Text("How should speech-to-text run?");
+        ImGui::TextColored(dimColor,
+                           "Your choice is saved to settings.json next to the exe and used on "
+                           "every start. Change it any time via the Settings button.");
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (ImGui::Button("Local (sherpa-onnx)  -  GPU / CUDA", ImVec2(-1.0f, 0.0f)))
+        {
+            cfg.engine = "sherpa";
+            cfg.provider = "cuda";
+            chosen = true;
+            done = true;
+        }
+        ImGui::TextColored(dimColor,
+                           "On-device transcription on your NVIDIA GPU. Falls back to CPU "
+                           "automatically if CUDA is unavailable.");
+        ImGui::Spacing();
+
+        if (ImGui::Button("Local (sherpa-onnx)  -  CPU", ImVec2(-1.0f, 0.0f)))
+        {
+            cfg.engine = "sherpa";
+            cfg.provider = "cpu";
+            chosen = true;
+            done = true;
+        }
+        ImGui::TextColored(dimColor, "On-device transcription on the CPU. Works everywhere.");
+        ImGui::Spacing();
+
+        if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
+        {
+            cfg.engine = "deepgram";
+            chosen = true;
+            done = true;
+        }
+        ImGui::TextColored(dimColor,
+                           "Streams audio to Deepgram's API. Best accuracy, punctuated output; "
+                           "requires the DEEPGRAM_API_KEY environment variable.");
+        if (!std::getenv("DEEPGRAM_API_KEY"))
+        {
+            ImGui::TextColored(warnColor,
+                               "DEEPGRAM_API_KEY is not set in this environment -- this mode "
+                               "will fail to start until you set it.");
+        }
+
+        ImGui::End();
+
+        ImGui::Render();
+        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // match WindowBg
+        g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
+        g_context->ClearRenderTargetView(g_rtv, clear);
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        g_swapChain->Present(1, 0);
+    }
+
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+    destroyDevice();
+    ::DestroyWindow(hwnd);
+    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    return chosen;
 }
 
 }  // namespace dsp

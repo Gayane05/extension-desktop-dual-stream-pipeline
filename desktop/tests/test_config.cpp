@@ -1,8 +1,12 @@
 // desktop/tests/test_config.cpp
 //
 // Unit tests for app/config.h's CLI argv parser (parseArgs): defaults, valid
-// flag values, and rejection of invalid/missing ones.
+// flag values, rejection of invalid/missing ones, and the settings.json
+// persistence used by the GUI's first-run chooser (load/save round trip,
+// defaults-file-CLI precedence).
 #include <gtest/gtest.h>
+
+#include <fstream>
 
 #include "app/config.h"
 
@@ -25,6 +29,52 @@ TEST(Config, Defaults)
     EXPECT_EQ(c->decoding, "beam");
     EXPECT_DOUBLE_EQ(c->endpointSilenceSec, 0.8);
     EXPECT_FALSE(c->headless);
+    EXPECT_FALSE(c->engineOrProviderExplicit);
+}
+
+TEST(Config, SettingsFileRoundTrip)
+{
+    Config out;
+    out.engine = "deepgram";
+    out.provider = "cuda";
+    const std::string path = std::string(::testing::TempDir()) + "settings-roundtrip.json";
+    ASSERT_TRUE(saveSettingsFile(path, out));
+    Config in;
+    ASSERT_TRUE(loadSettingsFile(path, in));
+    EXPECT_EQ(in.engine, "deepgram");
+    EXPECT_EQ(in.provider, "cuda");
+}
+
+TEST(Config, SettingsFileMissingLeavesDefaults)
+{
+    Config in;
+    EXPECT_FALSE(loadSettingsFile("Z:/definitely/missing/settings.json", in));
+    EXPECT_EQ(in.engine, "sherpa");
+    EXPECT_EQ(in.provider, "cpu");
+}
+
+TEST(Config, SettingsFileInvalidValuesIgnored)
+{
+    const std::string path = std::string(::testing::TempDir()) + "settings-bad.json";
+    std::ofstream(path) << R"({"engine":"whisper","provider":"cuda"})";
+    Config in;
+    EXPECT_TRUE(loadSettingsFile(path, in));
+    EXPECT_EQ(in.engine, "sherpa");  // invalid engine value fell back to default
+    EXPECT_EQ(in.provider, "cuda");  // valid provider still applied
+}
+
+TEST(Config, CliOverridesSettingsFileBase)
+{
+    Config base;
+    base.engine = "deepgram";
+    base.provider = "cuda";
+    std::vector<const char*> a{"transcriber.exe", "--engine", "sherpa"};
+    std::string err;
+    auto c = parseArgs(static_cast<int>(a.size()), a.data(), err, base);
+    ASSERT_TRUE(c) << err;
+    EXPECT_EQ(c->engine, "sherpa");  // explicit CLI flag wins over the file
+    EXPECT_EQ(c->provider, "cuda");  // untouched file value survives
+    EXPECT_TRUE(c->engineOrProviderExplicit);
 }
 
 TEST(Config, ParsesAllFlags)

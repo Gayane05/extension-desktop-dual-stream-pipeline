@@ -191,6 +191,15 @@ overridden, the app looks for `models/` next to the exe and up to two parent lev
 (so `desktop\models` is found from `desktop\build\Release`). A console window opens
 alongside the UI — that is expected (the same binary serves `--headless` runs).
 
+**First run & settings.** The first GUI launch (no saved settings, no explicit
+`--engine`/`--provider` flags) opens a setup screen asking how to run speech-to-text:
+local sherpa on GPU (CUDA), local sherpa on CPU, or the Deepgram cloud API. The choice
+is saved to `settings.json` next to the exe and used automatically on every later
+start. The **Settings** button in the main window reopens the chooser and restarts
+the engine with the new choice. Precedence: built-in defaults < `settings.json` <
+explicit CLI flags (a passed `--engine`/`--provider` always wins and also skips the
+first-run chooser). Headless runs never show UI and ignore the chooser entirely.
+
 ### Chrome extension
 
 1. Open `chrome://extensions`.
