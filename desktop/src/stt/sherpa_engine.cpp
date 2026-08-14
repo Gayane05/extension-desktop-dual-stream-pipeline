@@ -26,55 +26,55 @@ struct ModelFiles {
 // Collects encoder/decoder/joiner (fp32, non-int8) + tokens.txt from ONE
 // directory. All four must come from the same dir so that two extracted model
 // archives side by side under models/ can never be mixed together.
-static ModelFiles scanModelDir(const fs::path& d)
+static ModelFiles scanModelDir(const fs::path& dir)
 {
-    ModelFiles f;
-    if (!fs::exists(d))
+    ModelFiles modelFiles;
+    if (!fs::exists(dir))
     {
-        return f;
+        return modelFiles;
     }
-    for (auto& e : fs::directory_iterator(d))
+    for (auto& dirEntry : fs::directory_iterator(dir))
     {
-        auto name = e.path().filename().string();
+        auto name = dirEntry.path().filename().string();
         bool onnx = name.size() > 5 && name.substr(name.size() - 5) == ".onnx";
         bool int8 = name.find("int8") != std::string::npos;
         if (name == "tokens.txt")
         {
-            f.tokens = e.path().string();
+            modelFiles.tokens = dirEntry.path().string();
         }
         else if (onnx && !int8 && name.rfind("encoder", 0) == 0)
         {
-            f.encoder = e.path().string();
+            modelFiles.encoder = dirEntry.path().string();
         }
         else if (onnx && !int8 && name.rfind("decoder", 0) == 0)
         {
-            f.decoder = e.path().string();
+            modelFiles.decoder = dirEntry.path().string();
         }
         else if (onnx && !int8 && name.rfind("joiner", 0) == 0)
         {
-            f.joiner = e.path().string();
+            modelFiles.joiner = dirEntry.path().string();
         }
     }
-    return f;
+    return modelFiles;
 }
 
 // Looks in dir itself, then one level of nesting (models/<archive-name>/...);
 // the first subdirectory containing a complete model wins.
 static ModelFiles findModelFiles(const fs::path& dir)
 {
-    if (auto f = scanModelDir(dir); f.complete())
+    if (auto modelFiles = scanModelDir(dir); modelFiles.complete())
     {
-        return f;
+        return modelFiles;
     }
     if (fs::exists(dir))
     {
-        for (auto& e : fs::directory_iterator(dir))
+        for (auto& dirEntry : fs::directory_iterator(dir))
         {
-            if (e.is_directory())
+            if (dirEntry.is_directory())
             {
-                if (auto f = scanModelDir(e.path()); f.complete())
+                if (auto modelFiles = scanModelDir(dirEntry.path()); modelFiles.complete())
                 {
-                    return f;
+                    return modelFiles;
                 }
             }
         }
@@ -101,32 +101,32 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
             "model files not found in '" + opts_.modelDir + "' -- run scripts/download-model.ps1";
         return false;
     }
-    SherpaOnnxOnlineRecognizerConfig cfg{};
-    cfg.model_config.transducer.encoder = files.encoder.c_str();
-    cfg.model_config.transducer.decoder = files.decoder.c_str();
-    cfg.model_config.transducer.joiner = files.joiner.c_str();
-    cfg.model_config.tokens = files.tokens.c_str();
-    cfg.model_config.provider = provider.c_str();
-    cfg.model_config.num_threads = 2;
+    SherpaOnnxOnlineRecognizerConfig recognizerConfig{};
+    recognizerConfig.model_config.transducer.encoder = files.encoder.c_str();
+    recognizerConfig.model_config.transducer.decoder = files.decoder.c_str();
+    recognizerConfig.model_config.transducer.joiner = files.joiner.c_str();
+    recognizerConfig.model_config.tokens = files.tokens.c_str();
+    recognizerConfig.model_config.provider = provider.c_str();
+    recognizerConfig.model_config.num_threads = 2;
     // modified_beam_search trades a little decode CPU for a meaningfully lower
     // word error rate vs greedy; decode cost is small next to the encoder.
     const bool beam = opts_.decoding != "greedy";
-    cfg.decoding_method = beam ? "modified_beam_search" : "greedy_search";
+    recognizerConfig.decoding_method = beam ? "modified_beam_search" : "greedy_search";
     if (beam)
     {
-        cfg.max_active_paths = 4;
+        recognizerConfig.max_active_paths = 4;
     }
-    cfg.feat_config.sample_rate = 16000;
-    cfg.feat_config.feature_dim = 80;
+    recognizerConfig.feat_config.sample_rate = 16000;
+    recognizerConfig.feat_config.feature_dim = 80;
     // Endpointing controls how utterances split into finals: rule2 fires
     // after a pause following speech (the sentence-splitting knob, exposed
     // as --endpoint-silence), rule1 after long silence with no speech, and
     // rule3 force-finalizes run-on speech that never pauses.
-    cfg.enable_endpoint = 1;
-    cfg.rule1_min_trailing_silence = 2.4f;
-    cfg.rule2_min_trailing_silence = static_cast<float>(opts_.endpointSilenceSec);
-    cfg.rule3_min_utterance_length = 20.0f;
-    rec_ = SherpaOnnxCreateOnlineRecognizer(&cfg);
+    recognizerConfig.enable_endpoint = 1;
+    recognizerConfig.rule1_min_trailing_silence = 2.4f;
+    recognizerConfig.rule2_min_trailing_silence = static_cast<float>(opts_.endpointSilenceSec);
+    recognizerConfig.rule3_min_utterance_length = 20.0f;
+    rec_ = SherpaOnnxCreateOnlineRecognizer(&recognizerConfig);
     if (!rec_)
     {
         error = "failed to create recognizer (provider=" + provider + ")";
@@ -143,7 +143,7 @@ bool SherpaEngine::start(std::string& error)
     // self-defending rather than contract-reliant, at zero cost (init-time
     // only). createRecognizer() is private and only ever called from here, so
     // it must not lock mu_ itself -- it would self-deadlock.
-    std::lock_guard lk(mu_);
+    std::lock_guard lock(mu_);
     if (!createRecognizer(opts_.provider, error))
     {
         if (opts_.provider != "cpu")
@@ -169,29 +169,29 @@ bool SherpaEngine::start(std::string& error)
     return streams_[0] && streams_[1];
 }
 
-void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsMs)
+void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sampleCount, double tsMs)
 {
-    const int idx = static_cast<int>(s);
+    const int idx = static_cast<int>(streamId);
     int peak = 0;
-    std::vector<float> f(n);
-    for (size_t i = 0; i < n; ++i)
+    std::vector<float> floatSamples(sampleCount);
+    for (size_t i = 0; i < sampleCount; ++i)
     {
-        int v = samples[i];
-        if (v < 0)
+        int sampleValue = samples[i];
+        if (sampleValue < 0)
         {
-            v = -v;
+            sampleValue = -sampleValue;
         }
-        if (v > peak)
+        if (sampleValue > peak)
         {
-            peak = v;
+            peak = sampleValue;
         }
-        f[i] = samples[i] / 32768.0f;
+        floatSamples[i] = samples[i] / 32768.0f;
     }
     // ~0.3% of full scale: anything below is digital silence (muted source),
     // far under any real mic/tab noise floor. See voiced_ in the header.
     constexpr int kVoiceThreshold = 100;
 
-    std::lock_guard lk(mu_);
+    std::lock_guard lock(mu_);
     if (peak > kVoiceThreshold)
     {
         voiced_[idx] = true;
@@ -201,15 +201,17 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
         return;
     }
     auto* stream = streams_[idx];
-    SherpaOnnxOnlineStreamAcceptWaveform(stream, 16000, f.data(), static_cast<int32_t>(n));
+    SherpaOnnxOnlineStreamAcceptWaveform(stream, 16000, floatSamples.data(),
+                                         static_cast<int32_t>(sampleCount));
     while (SherpaOnnxIsOnlineStreamReady(rec_, stream))
     {
         SherpaOnnxDecodeOnlineStream(rec_, stream);
     }
 
-    const SherpaOnnxOnlineRecognizerResult* r = SherpaOnnxGetOnlineStreamResult(rec_, stream);
-    std::string text = (r && r->text) ? r->text : "";
-    SherpaOnnxDestroyOnlineRecognizerResult(r);
+    const SherpaOnnxOnlineRecognizerResult* recognizerResult =
+        SherpaOnnxGetOnlineStreamResult(rec_, stream);
+    std::string text = (recognizerResult && recognizerResult->text) ? recognizerResult->text : "";
+    SherpaOnnxDestroyOnlineRecognizerResult(recognizerResult);
 
     // NOTE: cb_ runs while holding mu_ -- it must not call back into this
     // engine (TranscriptModel::apply only takes its own unrelated lock, so
@@ -218,7 +220,7 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     {
         if (!text.empty() && voiced_[idx])
         {
-            cb_({s, text, true, tsMs});
+            cb_({streamId, text, true, tsMs});
         }
         SherpaOnnxOnlineStreamReset(rec_, stream);
         lastInterim_[idx].clear();
@@ -229,20 +231,20 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
         lastInterim_[idx] = text;
         if (!text.empty() && voiced_[idx])
         {
-            cb_({s, text, false, tsMs});
+            cb_({streamId, text, false, tsMs});
         }
     }
 }
 
 void SherpaEngine::stop()
 {
-    std::lock_guard lk(mu_);
-    for (auto*& st : streams_)
+    std::lock_guard lock(mu_);
+    for (auto*& stream : streams_)
     {
-        if (st)
+        if (stream)
         {
-            SherpaOnnxDestroyOnlineStream(st);
-            st = nullptr;
+            SherpaOnnxDestroyOnlineStream(stream);
+            stream = nullptr;
         }
     }
     if (rec_)

@@ -6,13 +6,13 @@
 // and fixed. Called once from main() before any engine/pipeline is created.
 #include "app/config.h"
 
-#include <charconv>
-#include <cstdio>
-#include <string_view>
-
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+
+#include <charconv>
+#include <cstdio>
+#include <string_view>
 
 namespace dsp {
 
@@ -36,108 +36,110 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
 std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error,
                                 const Config& base)
 {
-    Config c = base;
+    Config config = base;
     for (int i = 1; i < argc; ++i)
     {
-        std::string_view a = argv[i];
-        std::string v;
-        if (a == "--engine")
+        std::string_view flag = argv[i];
+        std::string flagValue;
+        if (flag == "--engine")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
-            if (v != "sherpa" && v != "deepgram")
+            if (flagValue != "sherpa" && flagValue != "deepgram")
             {
                 error = "engine must be sherpa|deepgram";
                 return std::nullopt;
             }
-            c.engine = v;
-            c.engineOrProviderExplicit = true;
+            config.engine = flagValue;
+            config.engineOrProviderExplicit = true;
         }
-        else if (a == "--provider")
+        else if (flag == "--provider")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
-            if (v != "cpu" && v != "cuda" && v != "tensorrt")
+            if (flagValue != "cpu" && flagValue != "cuda" && flagValue != "tensorrt")
             {
                 error = "provider must be cpu|cuda|tensorrt";
                 return std::nullopt;
             }
-            c.provider = v;
-            c.engineOrProviderExplicit = true;
+            config.provider = flagValue;
+            config.engineOrProviderExplicit = true;
         }
-        else if (a == "--port")
+        else if (flag == "--port")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
-            auto res = std::from_chars(v.data(), v.data() + v.size(), c.port);
-            if (res.ec != std::errc{} || res.ptr != v.data() + v.size() || c.port <= 0 ||
-                c.port > 65535)
+            auto portParseResult =
+                std::from_chars(flagValue.data(), flagValue.data() + flagValue.size(), config.port);
+            if (portParseResult.ec != std::errc{} ||
+                portParseResult.ptr != flagValue.data() + flagValue.size() || config.port <= 0 ||
+                config.port > 65535)
             {
                 error = "invalid port";
                 return std::nullopt;
             }
         }
-        else if (a == "--model-dir")
+        else if (flag == "--model-dir")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
-            c.modelDir = v;
+            config.modelDir = flagValue;
         }
-        else if (a == "--decoding")
+        else if (flag == "--decoding")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
-            if (v != "beam" && v != "greedy")
+            if (flagValue != "beam" && flagValue != "greedy")
             {
                 error = "decoding must be beam|greedy";
                 return std::nullopt;
             }
-            c.decoding = v;
+            config.decoding = flagValue;
         }
-        else if (a == "--endpoint-silence")
+        else if (flag == "--endpoint-silence")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
             try
             {
-                c.endpointSilenceSec = std::stod(v);
+                config.endpointSilenceSec = std::stod(flagValue);
             }
             catch (...)
             {
                 error = "invalid endpoint-silence";
                 return std::nullopt;
             }
-            if (c.endpointSilenceSec < 0.2 || c.endpointSilenceSec > 5.0)
+            if (config.endpointSilenceSec < 0.2 || config.endpointSilenceSec > 5.0)
             {
                 error = "endpoint-silence must be 0.2..5.0 seconds";
                 return std::nullopt;
             }
         }
-        else if (a == "--headless")
+        else if (flag == "--headless")
         {
-            c.headless = true;
+            config.headless = true;
         }
-        else if (a == "--duration")
+        else if (flag == "--duration")
         {
-            if (!takeValue(argc, argv, i, v, error))
+            if (!takeValue(argc, argv, i, flagValue, error))
             {
                 return std::nullopt;
             }
             try
             {
-                c.durationSec = std::stod(v);
+                config.durationSec = std::stod(flagValue);
             }
             catch (...)
             {
@@ -147,11 +149,11 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         }
         else
         {
-            error = "unknown flag: " + std::string(a);
+            error = "unknown flag: " + std::string(flag);
             return std::nullopt;
         }
     }
-    return c;
+    return config;
 }
 
 // Only engine + provider are persisted: they are the "how do you want to
@@ -159,76 +161,76 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
 // concern so scripted runs (E2E, headless) remain fully self-describing.
 bool loadSettingsFile(const std::string& path, Config& into)
 {
-    FILE* f = nullptr;
-    if (fopen_s(&f, path.c_str(), "rb") != 0 || !f)
+    FILE* file = nullptr;
+    if (fopen_s(&file, path.c_str(), "rb") != 0 || !file)
     {
         return false;
     }
     std::string text;
-    char buf[512];
-    size_t n = 0;
-    while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+    char readBuffer[512];
+    size_t bytesRead = 0;
+    while ((bytesRead = fread(readBuffer, 1, sizeof(readBuffer), file)) > 0)
     {
-        text.append(buf, n);
+        text.append(readBuffer, bytesRead);
     }
-    fclose(f);
+    fclose(file);
 
-    rapidjson::Document d;
-    d.Parse(text.c_str());
-    if (d.HasParseError() || !d.IsObject())
+    rapidjson::Document jsonDoc;
+    jsonDoc.Parse(text.c_str());
+    if (jsonDoc.HasParseError() || !jsonDoc.IsObject())
     {
         return false;
     }
     // Validate against the same value sets parseArgs enforces; a hand-edited
     // bad value falls back to the current (default) setting rather than
     // smuggling an invalid string past CLI validation.
-    if (d.HasMember("engine") && d["engine"].IsString())
+    if (jsonDoc.HasMember("engine") && jsonDoc["engine"].IsString())
     {
-        const std::string v = d["engine"].GetString();
-        if (v == "sherpa" || v == "deepgram")
+        const std::string value = jsonDoc["engine"].GetString();
+        if (value == "sherpa" || value == "deepgram")
         {
-            into.engine = v;
+            into.engine = value;
         }
     }
-    if (d.HasMember("provider") && d["provider"].IsString())
+    if (jsonDoc.HasMember("provider") && jsonDoc["provider"].IsString())
     {
-        const std::string v = d["provider"].GetString();
-        if (v == "cpu" || v == "cuda" || v == "tensorrt")
+        const std::string value = jsonDoc["provider"].GetString();
+        if (value == "cpu" || value == "cuda" || value == "tensorrt")
         {
-            into.provider = v;
+            into.provider = value;
         }
     }
-    if (d.HasMember("deepgramKey") && d["deepgramKey"].IsString())
+    if (jsonDoc.HasMember("deepgramKey") && jsonDoc["deepgramKey"].IsString())
     {
-        into.deepgramKey = d["deepgramKey"].GetString();
+        into.deepgramKey = jsonDoc["deepgramKey"].GetString();
     }
     return true;
 }
 
 bool saveSettingsFile(const std::string& path, const Config& cfg)
 {
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> w(sb);
-    w.StartObject();
-    w.Key("engine");
-    w.String(cfg.engine.c_str());
-    w.Key("provider");
-    w.String(cfg.provider.c_str());
+    rapidjson::StringBuffer jsonBuffer;
+    rapidjson::Writer<rapidjson::StringBuffer> jsonWriter(jsonBuffer);
+    jsonWriter.StartObject();
+    jsonWriter.Key("engine");
+    jsonWriter.String(cfg.engine.c_str());
+    jsonWriter.Key("provider");
+    jsonWriter.String(cfg.provider.c_str());
     if (!cfg.deepgramKey.empty())
     {
-        w.Key("deepgramKey");
-        w.String(cfg.deepgramKey.c_str());
+        jsonWriter.Key("deepgramKey");
+        jsonWriter.String(cfg.deepgramKey.c_str());
     }
-    w.EndObject();
+    jsonWriter.EndObject();
 
-    FILE* f = nullptr;
-    if (fopen_s(&f, path.c_str(), "wb") != 0 || !f)
+    FILE* file = nullptr;
+    if (fopen_s(&file, path.c_str(), "wb") != 0 || !file)
     {
         return false;
     }
-    const size_t len = sb.GetSize();
-    const bool ok = fwrite(sb.GetString(), 1, len, f) == len;
-    return fclose(f) == 0 && ok;
+    const size_t len = jsonBuffer.GetSize();
+    const bool ok = fwrite(jsonBuffer.GetString(), 1, len, file) == len;
+    return fclose(file) == 0 && ok;
 }
 
 }  // namespace dsp

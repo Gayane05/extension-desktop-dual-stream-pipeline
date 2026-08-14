@@ -55,8 +55,8 @@ async function start() {
       });
     }
     await chrome.runtime.sendMessage({ target: "offscreen", cmd: "start", tabStreamId, port: DESKTOP_PORT });
-  } catch (e) {
-    broadcast({ capture: "error", error: String(e.message || e) });
+  } catch (err) {
+    broadcast({ capture: "error", error: String(err.message || err) });
   }
 }
 

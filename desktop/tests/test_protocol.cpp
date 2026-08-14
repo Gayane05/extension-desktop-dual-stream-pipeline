@@ -53,13 +53,13 @@ TEST(Protocol, EmptyPayloadIsValid)
 
 TEST(Protocol, ParsesHello)
 {
-    auto h = parseHello(
+    auto hello = parseHello(
         R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
-    ASSERT_TRUE(h.has_value());
-    EXPECT_EQ(h->version, 1);
-    EXPECT_EQ(h->sampleRate, 16000);
-    EXPECT_EQ(h->channels, 1);
-    EXPECT_EQ(h->format, "s16le");
+    ASSERT_TRUE(hello.has_value());
+    EXPECT_EQ(hello->version, 1);
+    EXPECT_EQ(hello->sampleRate, 16000);
+    EXPECT_EQ(hello->channels, 1);
+    EXPECT_EQ(hello->format, "s16le");
 }
 
 TEST(Protocol, RejectsNonHelloAndGarbage)
@@ -72,9 +72,9 @@ TEST(Protocol, RejectsNonHelloAndGarbage)
 
 TEST(Protocol, BuildsStatusJson)
 {
-    auto s = buildStatusJson("sherpa", "cpu", "streaming", "idle");
-    EXPECT_NE(s.find("\"type\":\"status\""), std::string::npos);
-    EXPECT_NE(s.find("\"engine\":\"sherpa\""), std::string::npos);
-    EXPECT_NE(s.find("\"mic\":\"streaming\""), std::string::npos);
-    EXPECT_NE(s.find("\"tab\":\"idle\""), std::string::npos);
+    auto statusJson = buildStatusJson("sherpa", "cpu", "streaming", "idle");
+    EXPECT_NE(statusJson.find("\"type\":\"status\""), std::string::npos);
+    EXPECT_NE(statusJson.find("\"engine\":\"sherpa\""), std::string::npos);
+    EXPECT_NE(statusJson.find("\"mic\":\"streaming\""), std::string::npos);
+    EXPECT_NE(statusJson.find("\"tab\":\"idle\""), std::string::npos);
 }

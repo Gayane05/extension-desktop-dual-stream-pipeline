@@ -25,7 +25,7 @@ public:
     // (which would itself need cross-thread synchronization).
     explicit SpscRing(size_t capacity) : buf_(capacity + 1) {}
 
-    bool tryPush(T&& v)
+    bool tryPush(T&& value)
     {
         const size_t head = head_.load(std::memory_order_relaxed);
         const size_t next = (head + 1) % buf_.size();
@@ -37,7 +37,7 @@ public:
         {
             return false;  // full
         }
-        buf_[head] = std::move(v);
+        buf_[head] = std::move(value);
         // release pairs with tryPop's acquire load of head_: publishes both
         // the just-written buf_[head] and this index update together, so the
         // consumer never observes the new head without also observing the
@@ -52,10 +52,10 @@ public:
         for (;;)
         {
             sem_.acquire();
-            T v;
-            if (tryPop(v))
+            T value;
+            if (tryPop(value))
             {
-                return v;
+                return value;
             }
             if (closed_.load(std::memory_order_acquire))
             {

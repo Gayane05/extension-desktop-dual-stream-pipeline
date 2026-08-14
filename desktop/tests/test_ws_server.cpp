@@ -19,18 +19,18 @@ using namespace std::chrono_literals;
 
 namespace {
 template <typename Pred>
-bool waitFor(Pred p, std::chrono::milliseconds timeout = 5000ms)
+bool waitFor(Pred predicate, std::chrono::milliseconds timeout = 5000ms)
 {
     auto deadline = std::chrono::steady_clock::now() + timeout;
     while (std::chrono::steady_clock::now() < deadline)
     {
-        if (p())
+        if (predicate())
         {
             return true;
         }
         std::this_thread::sleep_for(10ms);
     }
-    return p();
+    return predicate();
 }
 }  // namespace
 
@@ -40,18 +40,20 @@ TEST(WsServer, HelloThenAudioReachesCallback)
     std::atomic<int> frames{0};
     std::atomic<bool> gotHello{false};
     std::atomic<bool> gone{false};
-    WsServer server(18765,
-                    {
-                        .onAudio =
-                            [&](AudioFrame&& f) {
-                                if (f.stream == StreamId::Mic)
-                                {
-                                    frames++;
-                                }
-                            },
-                        .onHello = [&](const HelloInfo& h) { gotHello = h.sampleRate == 16000; },
-                        .onClientGone = [&] { gone = true; },
-                    });
+    WsServer server(18765, {
+                               .onAudio =
+                                   [&](AudioFrame&& audioFrame) {
+                                       if (audioFrame.stream == StreamId::Mic)
+                                       {
+                                           frames++;
+                                       }
+                                   },
+                               .onHello =
+                                   [&](const HelloInfo& helloInfo) {
+                                       gotHello = helloInfo.sampleRate == 16000;
+                                   },
+                               .onClientGone = [&] { gone = true; },
+                           });
     std::string err;
     ASSERT_TRUE(server.start(err)) << err;
 
@@ -169,8 +171,8 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
     std::atomic<int> goneCount{0};
     WsServer server(18768, {
                                .onAudio =
-                                   [&](AudioFrame&& f) {
-                                       if (f.stream == StreamId::Mic)
+                                   [&](AudioFrame&& audioFrame) {
+                                       if (audioFrame.stream == StreamId::Mic)
                                        {
                                            framesA++;
                                        }
@@ -181,24 +183,25 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
     std::string err;
     ASSERT_TRUE(server.start(err)) << err;
 
-    ix::WebSocket a;
-    a.setUrl("ws://127.0.0.1:18768");
+    ix::WebSocket clientA;
+    clientA.setUrl("ws://127.0.0.1:18768");
     std::atomic<bool> aOpen{false};
-    a.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
+    clientA.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
         {
             aOpen = true;
         }
     });
-    a.start();
+    clientA.start();
     ASSERT_TRUE(waitFor([&] { return aOpen.load(); }));
-    a.sendText(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
+    clientA.sendText(
+        R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
     EXPECT_TRUE(waitFor([&] { return helloCount.load() == 1; }));
 
-    ix::WebSocket b;
-    b.setUrl("ws://127.0.0.1:18768");
+    ix::WebSocket clientB;
+    clientB.setUrl("ws://127.0.0.1:18768");
     std::atomic<bool> bOpen{false}, bGotError{false}, bClosed{false};
-    b.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
+    clientB.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
         {
             bOpen = true;
@@ -213,12 +216,13 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
             bClosed = true;
         }
     });
-    b.disableAutomaticReconnection();
-    b.start();
+    clientB.disableAutomaticReconnection();
+    clientB.start();
     ASSERT_TRUE(waitFor([&] { return bOpen.load(); }));
-    b.sendText(R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
+    clientB.sendText(
+        R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le"})");
     EXPECT_TRUE(waitFor([&] { return bGotError.load() && bClosed.load(); }));
-    b.stop();
+    clientB.stop();
 
     // B's rejection/close must not have been reported as A's onClientGone,
     // and must not have prevented a second hello from A (still the sole
@@ -229,12 +233,12 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
     // A keeps streaming after B was rejected.
     std::vector<int16_t> pcm(1600, 0);
     auto frame = serializeBinaryFrame(StreamId::Mic, 42.0, pcm.data(), pcm.size());
-    a.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));
+    clientA.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));
     EXPECT_TRUE(waitFor([&] { return framesA.load() >= 1; }));
 
-    a.sendText(R"({"type":"bye"})");
+    clientA.sendText(R"({"type":"bye"})");
     EXPECT_TRUE(waitFor([&] { return goneCount.load() >= 1; }));
-    a.stop();
+    clientA.stop();
     server.stop();
     ix::uninitNetSystem();
 }

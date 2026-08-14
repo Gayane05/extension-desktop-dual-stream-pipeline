@@ -15,9 +15,9 @@
 
 namespace dsp {
 enum class StreamId : uint8_t { Mic = 0, Tab = 1 };
-inline const char* streamName(StreamId s)
+inline const char* streamName(StreamId streamId)
 {
-    return s == StreamId::Mic ? "mic" : "tab";
+    return streamId == StreamId::Mic ? "mic" : "tab";
 }
 
 struct AudioFrame {
@@ -32,8 +32,8 @@ struct AudioFrame {
 inline constexpr size_t kFrameHeaderSize = 9;
 
 std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len);
-std::vector<uint8_t> serializeBinaryFrame(StreamId s, double tsMs, const int16_t* samples,
-                                          size_t n);
+std::vector<uint8_t> serializeBinaryFrame(StreamId streamId, double tsMs, const int16_t* samples,
+                                          size_t sampleCount);
 
 struct HelloInfo {
     int version = 0;

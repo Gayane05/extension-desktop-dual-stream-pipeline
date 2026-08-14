@@ -83,12 +83,12 @@ int main(int argc, char** argv)
 
     constexpr size_t kChunk = 1600;  // 100 ms
     const size_t maxLen = std::max(mic->samples.size(), tab->samples.size());
-    auto t0 = steady_clock::now();
-    // Pace chunks against absolute deadlines (t0 + N*100ms) rather than
+    auto startTime = steady_clock::now();
+    // Pace chunks against absolute deadlines (startTime + N*100ms) rather than
     // sleeping 100ms between iterations: a fixed per-iteration sleep
     // accumulates drift from the loop body's own execution time (and any
     // scheduler jitter), so after enough chunks the stream would run
-    // measurably slower than real time. Anchoring every deadline to t0
+    // measurably slower than real time. Anchoring every deadline to startTime
     // instead keeps long-run average pacing accurate, matching how the
     // extension feeds audio in real time.
     for (size_t off = 0; off < maxLen; off += kChunk)
@@ -99,13 +99,13 @@ int main(int argc, char** argv)
             {
                 return;
             }
-            size_t n = std::min(kChunk, pcm.size() - off);
-            auto frame = serializeBinaryFrame(id, tsMs, pcm.data() + off, n);
+            size_t sampleCount = std::min(kChunk, pcm.size() - off);
+            auto frame = serializeBinaryFrame(id, tsMs, pcm.data() + off, sampleCount);
             ws.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));
         };
         sendChunk(StreamId::Mic, mic->samples);
         sendChunk(StreamId::Tab, tab->samples);
-        std::this_thread::sleep_until(t0 + milliseconds(100) * (off / kChunk + 1));
+        std::this_thread::sleep_until(startTime + milliseconds(100) * (off / kChunk + 1));
     }
     // sherpa's endpoint rules (see sherpa_engine.cpp) finalize an utterance
     // only after observing a trailing silence gap, so without feeding a few
@@ -116,10 +116,10 @@ int main(int argc, char** argv)
     for (int i = 0; i < 30; ++i)
     {
         double tsMs = duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
-        auto f1 = serializeBinaryFrame(StreamId::Mic, tsMs, silence.data(), silence.size());
-        auto f2 = serializeBinaryFrame(StreamId::Tab, tsMs, silence.data(), silence.size());
-        ws.sendBinary(std::string(reinterpret_cast<char*>(f1.data()), f1.size()));
-        ws.sendBinary(std::string(reinterpret_cast<char*>(f2.data()), f2.size()));
+        auto micFrame = serializeBinaryFrame(StreamId::Mic, tsMs, silence.data(), silence.size());
+        auto tabFrame = serializeBinaryFrame(StreamId::Tab, tsMs, silence.data(), silence.size());
+        ws.sendBinary(std::string(reinterpret_cast<char*>(micFrame.data()), micFrame.size()));
+        ws.sendBinary(std::string(reinterpret_cast<char*>(tabFrame.data()), tabFrame.size()));
         std::this_thread::sleep_for(100ms);
     }
     ws.sendText(R"({"type":"bye"})");

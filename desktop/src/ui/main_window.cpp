@@ -51,14 +51,14 @@ void createRenderTarget()
 
 bool createDevice(HWND hwnd)
 {
-    DXGI_SWAP_CHAIN_DESC sd{};
-    sd.BufferCount = 2;
-    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = hwnd;
-    sd.SampleDesc.Count = 1;
-    sd.Windowed = TRUE;
-    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+    DXGI_SWAP_CHAIN_DESC swapChainDesc{};
+    swapChainDesc.BufferCount = 2;
+    swapChainDesc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.OutputWindow = hwnd;
+    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.Windowed = TRUE;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
     D3D_FEATURE_LEVEL level;
     const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0};
     // Hardware first; WARP (software rasterizer) fallback keeps us running on
@@ -66,8 +66,8 @@ bool createDevice(HWND hwnd)
     for (auto type : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP})
     {
         if (SUCCEEDED(D3D11CreateDeviceAndSwapChain(nullptr, type, nullptr, 0, levels, 2,
-                                                    D3D11_SDK_VERSION, &sd, &g_swapChain, &g_device,
-                                                    &level, &g_context)))
+                                                    D3D11_SDK_VERSION, &swapChainDesc, &g_swapChain,
+                                                    &g_device, &level, &g_context)))
         {
             g_usingWarp = (type == D3D_DRIVER_TYPE_WARP);
             createRenderTarget();
@@ -109,8 +109,8 @@ void destroyDevice()
 // queue.
 void drainThreadMessages()
 {
-    MSG m;
-    while (::PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE))
+    MSG queuedMsg;
+    while (::PeekMessageW(&queuedMsg, nullptr, 0, 0, PM_REMOVE))
     {
     }
 }
@@ -188,23 +188,24 @@ void applyThemeAndFont()
     }
 }
 
-LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
+LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, w, l))
+    if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
     {
         return true;
     }
     switch (msg)
     {
         case WM_SIZE:
-            if (g_device && w != SIZE_MINIMIZED)
+            if (g_device && wParam != SIZE_MINIMIZED)
             {
                 if (g_rtv)
                 {
                     g_rtv->Release();
                     g_rtv = nullptr;
                 }
-                g_swapChain->ResizeBuffers(0, LOWORD(l), HIWORD(l), DXGI_FORMAT_UNKNOWN, 0);
+                g_swapChain->ResizeBuffers(0, LOWORD(lParam), HIWORD(lParam), DXGI_FORMAT_UNKNOWN,
+                                           0);
                 createRenderTarget();
             }
             return 0;
@@ -212,7 +213,7 @@ LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
             ::PostQuitMessage(0);
             return 0;
     }
-    return ::DefWindowProcW(hwnd, msg, w, l);
+    return ::DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 }  // namespace
 
@@ -220,25 +221,17 @@ namespace dsp {
 
 int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg)
 {
-    WNDCLASSEXW wc = {sizeof(wc),
-                      CS_CLASSDC,
-                      wndProc,
-                      0,
-                      0,
-                      ::GetModuleHandleW(nullptr),
-                      nullptr,
-                      nullptr,
-                      nullptr,
-                      nullptr,
-                      L"DualStreamTranscriber",
-                      nullptr};
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dual-Stream Transcriber", WS_OVERLAPPEDWINDOW,
-                                100, 100, 900, 640, nullptr, nullptr, wc.hInstance, nullptr);
+    WNDCLASSEXW windowClass = {sizeof(windowClass),         CS_CLASSDC, wndProc, 0,       0,
+                               ::GetModuleHandleW(nullptr), nullptr,    nullptr, nullptr, nullptr,
+                               L"DualStreamTranscriber",    nullptr};
+    ::RegisterClassExW(&windowClass);
+    HWND hwnd =
+        ::CreateWindowW(windowClass.lpszClassName, L"Dual-Stream Transcriber", WS_OVERLAPPEDWINDOW,
+                        100, 100, 900, 640, nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!createDevice(hwnd))
     {
         ::DestroyWindow(hwnd);
-        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
         return 1;
     }
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -250,8 +243,8 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);  // blue - You
-    const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);  // orange - Others
+    const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);   // blue - You
+    const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);   // orange - Others
     const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);  // slate-tinted secondary text
     const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
     bool autoscroll = true;
@@ -295,9 +288,9 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
             lastStatusPush = now;
         }
 
-        const ImGuiViewport* vp = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(vp->WorkPos);
-        ImGui::SetNextWindowSize(vp->WorkSize);
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
         ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
 
         // --- status bar (top) ---
@@ -360,21 +353,21 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 
         // --- transcript ---
         ImGui::BeginChild("transcript", ImVec2(0, 0), 0, ImGuiWindowFlags_HorizontalScrollbar);
-        for (const auto& u : model.snapshot())
+        for (const auto& utterance : model.snapshot())
         {
-            const bool mic = u.stream == StreamId::Mic;
+            const bool mic = utterance.stream == StreamId::Mic;
             ImGui::TextColored(mic ? micColor : tabColor, mic ? "You:" : "Others:");
             ImGui::SameLine();
-            if (u.isFinal)
+            if (utterance.isFinal)
             {
-                ImGui::TextWrapped("%s", u.text.c_str());
+                ImGui::TextWrapped("%s", utterance.text.c_str());
             }
             else
             {
                 // TextColored does not word-wrap; long sherpa interims (a whole
                 // utterance until the endpoint fires) would overflow the window.
                 ImGui::PushStyleColor(ImGuiCol_Text, dimColor);
-                ImGui::TextWrapped("%s ...", u.text.c_str());
+                ImGui::TextWrapped("%s ...", utterance.text.c_str());
                 ImGui::PopStyleColor();
             }
         }
@@ -398,7 +391,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGui::DestroyContext();
     destroyDevice();
     ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
     drainThreadMessages();
     return exitCode;
 }
@@ -410,25 +403,17 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 // treats that as "exit the app"). The caller persists the choice.
 bool runSetupUi(Config& cfg)
 {
-    WNDCLASSEXW wc = {sizeof(wc),
-                      CS_CLASSDC,
-                      wndProc,
-                      0,
-                      0,
-                      ::GetModuleHandleW(nullptr),
-                      nullptr,
-                      nullptr,
-                      nullptr,
-                      nullptr,
-                      L"DualStreamTranscriberSetup",
-                      nullptr};
-    ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Transcriber Setup", WS_OVERLAPPEDWINDOW, 200,
-                                200, 720, 480, nullptr, nullptr, wc.hInstance, nullptr);
+    WNDCLASSEXW windowClass = {sizeof(windowClass),           CS_CLASSDC, wndProc, 0,       0,
+                               ::GetModuleHandleW(nullptr),   nullptr,    nullptr, nullptr, nullptr,
+                               L"DualStreamTranscriberSetup", nullptr};
+    ::RegisterClassExW(&windowClass);
+    HWND hwnd =
+        ::CreateWindowW(windowClass.lpszClassName, L"Transcriber Setup", WS_OVERLAPPEDWINDOW, 200,
+                        200, 720, 480, nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!createDevice(hwnd))
     {
         ::DestroyWindow(hwnd);
-        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
         return false;
     }
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
@@ -475,9 +460,9 @@ bool runSetupUi(Config& cfg)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        const ImGuiViewport* vp = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(vp->WorkPos);
-        ImGui::SetNextWindowSize(vp->WorkSize);
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
         ImGui::Begin("setup", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
 
         ImGui::Text("How should speech-to-text run?");
@@ -558,8 +543,7 @@ bool runSetupUi(Config& cfg)
         std::string key(keyBuf);
         const auto first = key.find_first_not_of(" \t\r\n");
         const auto last = key.find_last_not_of(" \t\r\n");
-        cfg.deepgramKey =
-            (first == std::string::npos) ? "" : key.substr(first, last - first + 1);
+        cfg.deepgramKey = (first == std::string::npos) ? "" : key.substr(first, last - first + 1);
     }
 
     ImGui_ImplDX11_Shutdown();
@@ -567,7 +551,7 @@ bool runSetupUi(Config& cfg)
     ImGui::DestroyContext();
     destroyDevice();
     ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+    ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
     drainThreadMessages();
     return chosen;
 }

@@ -12,24 +12,24 @@
 
 using namespace dsp;
 
-static std::optional<Config> parse(std::vector<const char*> a, std::string& err)
+static std::optional<Config> parse(std::vector<const char*> args, std::string& err)
 {
-    a.insert(a.begin(), "transcriber.exe");
-    return parseArgs(static_cast<int>(a.size()), a.data(), err);
+    args.insert(args.begin(), "transcriber.exe");
+    return parseArgs(static_cast<int>(args.size()), args.data(), err);
 }
 
 TEST(Config, Defaults)
 {
     std::string err;
-    auto c = parse({}, err);
-    ASSERT_TRUE(c);
-    EXPECT_EQ(c->engine, "deepgram");
-    EXPECT_EQ(c->provider, "cpu");
-    EXPECT_EQ(c->port, 8765);
-    EXPECT_EQ(c->decoding, "beam");
-    EXPECT_DOUBLE_EQ(c->endpointSilenceSec, 0.8);
-    EXPECT_FALSE(c->headless);
-    EXPECT_FALSE(c->engineOrProviderExplicit);
+    auto config = parse({}, err);
+    ASSERT_TRUE(config);
+    EXPECT_EQ(config->engine, "deepgram");
+    EXPECT_EQ(config->provider, "cpu");
+    EXPECT_EQ(config->port, 8765);
+    EXPECT_EQ(config->decoding, "beam");
+    EXPECT_DOUBLE_EQ(config->endpointSilenceSec, 0.8);
+    EXPECT_FALSE(config->headless);
+    EXPECT_FALSE(config->engineOrProviderExplicit);
 }
 
 TEST(Config, SettingsFileRoundTrip)
@@ -70,31 +70,31 @@ TEST(Config, CliOverridesSettingsFileBase)
     Config base;
     base.engine = "deepgram";
     base.provider = "cuda";
-    std::vector<const char*> a{"transcriber.exe", "--engine", "sherpa"};
+    std::vector<const char*> args{"transcriber.exe", "--engine", "sherpa"};
     std::string err;
-    auto c = parseArgs(static_cast<int>(a.size()), a.data(), err, base);
-    ASSERT_TRUE(c) << err;
-    EXPECT_EQ(c->engine, "sherpa");  // explicit CLI flag wins over the file
-    EXPECT_EQ(c->provider, "cuda");  // untouched file value survives
-    EXPECT_TRUE(c->engineOrProviderExplicit);
+    auto config = parseArgs(static_cast<int>(args.size()), args.data(), err, base);
+    ASSERT_TRUE(config) << err;
+    EXPECT_EQ(config->engine, "sherpa");  // explicit CLI flag wins over the file
+    EXPECT_EQ(config->provider, "cuda");  // untouched file value survives
+    EXPECT_TRUE(config->engineOrProviderExplicit);
 }
 
 TEST(Config, ParsesAllFlags)
 {
     std::string err;
-    auto c = parse(
+    auto config = parse(
         {"--engine", "deepgram", "--provider", "cuda", "--port", "9000", "--model-dir", "D:/models",
          "--decoding", "greedy", "--endpoint-silence", "0.5", "--headless", "--duration", "12.5"},
         err);
-    ASSERT_TRUE(c) << err;
-    EXPECT_EQ(c->engine, "deepgram");
-    EXPECT_EQ(c->provider, "cuda");
-    EXPECT_EQ(c->port, 9000);
-    EXPECT_EQ(c->modelDir, "D:/models");
-    EXPECT_EQ(c->decoding, "greedy");
-    EXPECT_DOUBLE_EQ(c->endpointSilenceSec, 0.5);
-    EXPECT_TRUE(c->headless);
-    EXPECT_DOUBLE_EQ(c->durationSec, 12.5);
+    ASSERT_TRUE(config) << err;
+    EXPECT_EQ(config->engine, "deepgram");
+    EXPECT_EQ(config->provider, "cuda");
+    EXPECT_EQ(config->port, 9000);
+    EXPECT_EQ(config->modelDir, "D:/models");
+    EXPECT_EQ(config->decoding, "greedy");
+    EXPECT_DOUBLE_EQ(config->endpointSilenceSec, 0.5);
+    EXPECT_TRUE(config->headless);
+    EXPECT_DOUBLE_EQ(config->durationSec, 12.5);
 }
 
 TEST(Config, RejectsBadValues)
@@ -148,7 +148,7 @@ TEST(Config, LenientDurationParsing)
     // std::stod parses leading numeric portion and does NOT throw
     // for "12abc", so it silently accepts as 12.0. This is documented
     // behavior difference from port flag's strict full-string parse.
-    auto c = parse({"--duration", "12abc"}, err);
-    EXPECT_TRUE(c);
-    EXPECT_DOUBLE_EQ(c->durationSec, 12.0);
+    auto config = parse({"--duration", "12abc"}, err);
+    EXPECT_TRUE(config);
+    EXPECT_DOUBLE_EQ(config->durationSec, 12.0);
 }

@@ -16,7 +16,7 @@ namespace dsp {
 // (or nullopt for message types/shapes we don't care about). Free function
 // (not a method) so it's unit-testable without spinning up a real WS
 // connection -- see desktop/tests/test_deepgram_parse.cpp.
-std::optional<TranscriptEvent> parseDeepgramMessage(StreamId s, const std::string& json,
+std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std::string& json,
                                                     double nowMs);
 
 // Cloud STT via Deepgram's streaming API. Implements ISttEngine; unlike
@@ -41,7 +41,7 @@ public:
     DeepgramEngine(EngineOptions opts, TranscriptCallback cb);
     ~DeepgramEngine() override;
     bool start(std::string& error) override;
-    void feed(StreamId s, const int16_t* samples, size_t n, double tsMs) override;
+    void feed(StreamId streamId, const int16_t* samples, size_t sampleCount, double tsMs) override;
     void stop() override;
     std::string name() const override { return "deepgram"; }
     std::string effectiveProvider() const override { return "cloud"; }

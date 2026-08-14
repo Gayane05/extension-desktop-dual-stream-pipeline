@@ -12,25 +12,25 @@ namespace dsp {
 
 bool saveTranscriptFile(const std::string& path, const std::string& text, std::string& error)
 {
-    FILE* f = nullptr;
-    const errno_t openErr = fopen_s(&f, path.c_str(), "wb");
-    if (openErr != 0 || f == nullptr)
+    FILE* file = nullptr;
+    const errno_t openErr = fopen_s(&file, path.c_str(), "wb");
+    if (openErr != 0 || file == nullptr)
     {
-        char msg[256] = {};
-        strerror_s(msg, sizeof(msg), openErr);
-        error = std::string("open failed: ") + msg;
+        char errMsg[256] = {};
+        strerror_s(errMsg, sizeof(errMsg), openErr);
+        error = std::string("open failed: ") + errMsg;
         return false;
     }
 
-    const size_t written = fwrite(text.data(), 1, text.size(), f);
+    const size_t written = fwrite(text.data(), 1, text.size(), file);
     if (written != text.size())
     {
-        std::fclose(f);
+        std::fclose(file);
         error = "short write (disk full?)";
         return false;
     }
 
-    if (std::fclose(f) != 0)
+    if (std::fclose(file) != 0)
     {
         error = "close failed";
         return false;

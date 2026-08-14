@@ -29,7 +29,7 @@ public:
     SherpaEngine(EngineOptions opts, TranscriptCallback cb);
     ~SherpaEngine() override;
     bool start(std::string& error) override;
-    void feed(StreamId s, const int16_t* samples, size_t n, double tsMs) override;
+    void feed(StreamId streamId, const int16_t* samples, size_t sampleCount, double tsMs) override;
     void stop() override;
     std::string name() const override { return "sherpa"; }
     std::string effectiveProvider() const override { return effectiveProvider_; }

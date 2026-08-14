@@ -21,10 +21,10 @@ TEST(SaveTranscript, WritesFullContentOnSuccess)
     ASSERT_TRUE(saveTranscriptFile(path, text, err)) << err;
     EXPECT_TRUE(err.empty());
 
-    std::ifstream f(path, std::ios::binary);
-    ASSERT_TRUE(f);
+    std::ifstream file(path, std::ios::binary);
+    ASSERT_TRUE(file);
     std::ostringstream ss;
-    ss << f.rdbuf();
+    ss << file.rdbuf();
     EXPECT_EQ(ss.str(), text);
 }
 
@@ -45,9 +45,9 @@ TEST(SaveTranscript, HandlesEmptyText)
     std::string err;
     ASSERT_TRUE(saveTranscriptFile(path, "", err)) << err;
 
-    std::ifstream f(path, std::ios::binary);
-    ASSERT_TRUE(f);
+    std::ifstream file(path, std::ios::binary);
+    ASSERT_TRUE(file);
     std::ostringstream ss;
-    ss << f.rdbuf();
+    ss << file.rdbuf();
     EXPECT_EQ(ss.str(), "");
 }

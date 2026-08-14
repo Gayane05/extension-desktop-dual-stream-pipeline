@@ -25,12 +25,15 @@ public:
     ~Pipeline();
     bool start(std::string& error);
     void stop();
-    uint64_t droppedChunks(StreamId s) const { return dropped_[static_cast<int>(s)].load(); }
+    uint64_t droppedChunks(StreamId streamId) const
+    {
+        return dropped_[static_cast<int>(streamId)].load();
+    }
     // "streaming" only while a frame arrived within the last 2s, so the UI
     // badge doesn't lie forever once a client disconnects mid-stream.
-    std::string streamState(StreamId s) const
+    std::string streamState(StreamId streamId) const
     {
-        const int64_t last = lastFrameMs_[static_cast<int>(s)].load();
+        const int64_t last = lastFrameMs_[static_cast<int>(streamId)].load();
         if (last == 0)
         {
             return "idle";
@@ -50,7 +53,7 @@ public:
     void pushStatus();
 
 private:
-    void workerLoop(StreamId s);
+    void workerLoop(StreamId streamId);
 
     Config cfg_;
     ISttEngine& engine_;

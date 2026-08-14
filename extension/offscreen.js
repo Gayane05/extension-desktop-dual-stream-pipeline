@@ -37,8 +37,8 @@ function sendFrame(tag, samples) {
   view.setUint8(0, tag);
   view.setFloat64(1, Date.now(), true); // little-endian
   for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(9 + i * 2, (s * 32767) | 0, true);
+    const clampedSample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(9 + i * 2, (clampedSample * 32767) | 0, true);
   }
   ws.send(buf);
 }
@@ -94,33 +94,33 @@ async function start(tabStreamId, port) {
   let micStream;
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
-  } catch (e) {
+  } catch (err) {
     active = false;
     if (startGeneration !== myGen) return; // stop() (or a newer start) superseded this attempt; it already reported idle
-    if (e.name === "NotAllowedError") {
+    if (err.name === "NotAllowedError") {
       status({ capture: "error", micPermission: "needed", error: "Microphone permission needed — click the button in the popup." });
       chrome.runtime.sendMessage({ cmd: "openPermissionPage" }).catch(() => {});
     } else {
-      status({ capture: "error", error: "microphone unavailable: " + e.name });
+      status({ capture: "error", error: "microphone unavailable: " + err.name });
     }
     return;
   }
-  if (startGeneration !== myGen) { micStream.getTracks().forEach((t) => t.stop()); return; }
+  if (startGeneration !== myGen) { micStream.getTracks().forEach((track) => track.stop()); return; }
 
   let tabStream;
   try {
     tabStream = await navigator.mediaDevices.getUserMedia({
       audio: { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: tabStreamId } },
     });
-  } catch (e) {
-    micStream.getTracks().forEach((t) => t.stop());
+  } catch (err) {
+    micStream.getTracks().forEach((track) => track.stop());
     if (startGeneration !== myGen) return; // superseded; stop() already reported idle
-    status({ capture: "error", error: "tab capture failed: " + (e.message || e) });
+    status({ capture: "error", error: "tab capture failed: " + (err.message || err) });
     return;
   }
   if (startGeneration !== myGen) {
-    micStream.getTracks().forEach((t) => t.stop());
-    tabStream.getTracks().forEach((t) => t.stop());
+    micStream.getTracks().forEach((track) => track.stop());
+    tabStream.getTracks().forEach((track) => track.stop());
     return;
   }
 
@@ -135,7 +135,7 @@ async function start(tabStreamId, port) {
     // ctx/tracks are module-level and may already have been torn down by a racing
     // stop() during this await, so null-guard rather than assuming they're live.
     if (ctx) { ctx.close(); ctx = null; }
-    tracks.forEach((t) => t.stop());
+    tracks.forEach((track) => track.stop());
     tracks = [];
     return;
   }
@@ -143,8 +143,8 @@ async function start(tabStreamId, port) {
   const tabNode = new AudioWorkletNode(ctx, "pcm-writer");
   const micAcc = makeAccumulator(TAG.mic);
   const tabAcc = makeAccumulator(TAG.tab);
-  micNode.port.onmessage = (e) => micAcc(e.data);
-  tabNode.port.onmessage = (e) => tabAcc(e.data);
+  micNode.port.onmessage = (event) => micAcc(event.data);
+  tabNode.port.onmessage = (event) => tabAcc(event.data);
   ctx.createMediaStreamSource(micStream).connect(micNode);
   ctx.createMediaStreamSource(tabStream).connect(tabNode);
 
@@ -171,7 +171,7 @@ function stop() {
   reconnectTimer = null;
   reconnectAttempts = 0;
   if (ws) { try { ws.send(JSON.stringify({ type: "bye" })); } catch {} ws.close(); ws = null; }
-  tracks.forEach((t) => t.stop());
+  tracks.forEach((track) => track.stop());
   tracks = [];
   if (ctx) { ctx.close(); ctx = null; }
   status({ capture: "idle", ws: "disconnected", desktop: null });

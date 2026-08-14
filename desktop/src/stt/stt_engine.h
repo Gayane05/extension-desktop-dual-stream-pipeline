@@ -30,7 +30,8 @@ class ISttEngine {
 public:
     virtual ~ISttEngine() = default;
     virtual bool start(std::string& error) = 0;  // may downgrade provider (see effectiveProvider)
-    virtual void feed(StreamId s, const int16_t* samples, size_t n, double tsMs) = 0;
+    virtual void feed(StreamId streamId, const int16_t* samples, size_t sampleCount,
+                      double tsMs) = 0;
     virtual void stop() = 0;
     virtual std::string name() const = 0;
     virtual std::string effectiveProvider() const = 0;  // "cpu" after fallback

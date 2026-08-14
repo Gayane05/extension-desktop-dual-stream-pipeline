@@ -21,15 +21,15 @@ bool Pipeline::start(std::string& error)
         cfg_.port,
         WsServer::Callbacks{
             // Demux: onAudio fires on a WsServer connection thread for both
-            // streams; f.stream picks which of the two per-stream rings this
+            // streams; frame.stream picks which of the two per-stream rings this
             // frame lands in, decoupling network delivery from STT decode
             // pacing on the corresponding workerLoop below.
             .onAudio =
-                [this](AudioFrame&& f) {
-                    const int i = static_cast<int>(f.stream);
-                    const StreamId sid = f.stream;  // capture before tryPush moves f
+                [this](AudioFrame&& frame) {
+                    const int streamIndex = static_cast<int>(frame.stream);
+                    const StreamId streamId = frame.stream;  // capture before tryPush moves frame
                     const auto now = std::chrono::steady_clock::now().time_since_epoch();
-                    lastFrameMs_[i].store(
+                    lastFrameMs_[streamIndex].store(
                         std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
                     // tryPush drop policy: if the STT worker is falling behind
                     // (ring full), drop the newest frame rather than blocking
@@ -39,12 +39,12 @@ bool Pipeline::start(std::string& error)
                     // only the first drop per lane to avoid flooding stderr
                     // during a sustained backlog; droppedChunks() still counts
                     // every one for the UI.
-                    if (!rings_[i].tryPush(std::move(f)))
+                    if (!rings_[streamIndex].tryPush(std::move(frame)))
                     {
-                        if (dropped_[i]++ == 0)
+                        if (dropped_[streamIndex]++ == 0)
                         {
                             std::fprintf(stderr, "warning: dropping frames for %s (ring full)\n",
-                                         streamName(sid));
+                                         streamName(streamId));
                         }
                     }
                 },
@@ -76,9 +76,9 @@ bool Pipeline::start(std::string& error)
 // per stream (see start()) drains this stream's ring and feeds the shared
 // STT engine, so mic and tab decode independently and neither lane's decode
 // latency can stall the other's frame delivery.
-void Pipeline::workerLoop(StreamId s)
+void Pipeline::workerLoop(StreamId streamId)
 {
-    auto& ring = rings_[static_cast<int>(s)];
+    auto& ring = rings_[static_cast<int>(streamId)];
     while (auto frame = ring.popWait())
     {
         // A crash inside the engine must not take the whole process down
@@ -86,16 +86,18 @@ void Pipeline::workerLoop(StreamId s)
         // than letting an exception escape a detached-looking thread.
         try
         {
-            engine_.feed(s, frame->samples.data(), frame->samples.size(), frame->captureTsMs);
+            engine_.feed(streamId, frame->samples.data(), frame->samples.size(),
+                         frame->captureTsMs);
         }
-        catch (const std::exception& e)
+        catch (const std::exception& ex)
         {
-            std::fprintf(stderr, "engine feed error (%s): %s\n", streamName(s), e.what());
+            std::fprintf(stderr, "engine feed error (%s): %s\n", streamName(streamId), ex.what());
             return;
         }
         catch (...)
         {
-            std::fprintf(stderr, "engine feed error (%s): unknown exception\n", streamName(s));
+            std::fprintf(stderr, "engine feed error (%s): unknown exception\n",
+                         streamName(streamId));
             return;
         }
     }
@@ -131,15 +133,15 @@ void Pipeline::stop()
     {
         server_->stop();
     }
-    for (auto& r : rings_)
+    for (auto& ring : rings_)
     {
-        r.close();
+        ring.close();
     }
-    for (auto& w : workers_)
+    for (auto& worker : workers_)
     {
-        if (w.joinable())
+        if (worker.joinable())
         {
-            w.join();
+            worker.join();
         }
     }
     server_.reset();

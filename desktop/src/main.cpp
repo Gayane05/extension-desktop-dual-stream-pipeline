@@ -34,7 +34,7 @@ namespace dsp {
 // kRunUiRestartSetup when the Settings button asks for the mode chooser.
 int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg);
 bool runSetupUi(Config& cfg);
-}
+}  // namespace dsp
 
 static std::atomic<bool> g_stop{false};
 static void onSignal(int)
@@ -77,7 +77,7 @@ static void resolveDefaultModelDir(dsp::Config& cfg)
 }
 
 static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
-                                                   dsp::TranscriptCallback cb)
+                                                   dsp::TranscriptCallback transcriptCallback)
 {
     dsp::EngineOptions opts;
     opts.modelDir = cfg.modelDir;
@@ -91,40 +91,41 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     {
         opts.deepgramKey = cfg.deepgramKey;
     }
-    else if (const char* k = std::getenv("DEEPGRAM_API_KEY"))
+    else if (const char* envApiKey = std::getenv("DEEPGRAM_API_KEY"))
     {
-        opts.deepgramKey = k;
+        opts.deepgramKey = envApiKey;
     }
     if (cfg.engine == "deepgram")
     {
-        return std::make_unique<dsp::DeepgramEngine>(opts, std::move(cb));
+        return std::make_unique<dsp::DeepgramEngine>(opts, std::move(transcriptCallback));
     }
-    return std::make_unique<dsp::SherpaEngine>(opts, std::move(cb));
+    return std::make_unique<dsp::SherpaEngine>(opts, std::move(transcriptCallback));
 }
 
 // Deviation from the task brief: the brief's sketch built the headless JSONL
-// line with fprintf("...\"text\":\"%s\"...", ev.text.c_str()), which produces
+// line with fprintf("...\"text\":\"%s\"...", transcriptEvent.text.c_str()), which produces
 // invalid JSON whenever the transcript text contains a quote or backslash (or
 // other characters requiring escaping). Emit the line with RapidJSON's
 // Writer instead -- the same approach protocol.cpp already uses for
 // buildStatusJson/buildErrorJson -- so the text field is always valid JSON.
-static std::string buildTranscriptLine(const dsp::TranscriptEvent& ev)
+static std::string buildTranscriptLine(const dsp::TranscriptEvent& transcriptEvent)
 {
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> w(sb);
-    w.StartObject();
-    w.Key("stream");
-    w.String(dsp::streamName(ev.stream));
-    w.Key("final");
-    w.Bool(ev.isFinal);
-    w.Key("ts");
-    w.Double(ev.tsMs);
+    rapidjson::StringBuffer jsonBuffer;
+    rapidjson::Writer<rapidjson::StringBuffer> jsonWriter(jsonBuffer);
+    jsonWriter.StartObject();
+    jsonWriter.Key("stream");
+    jsonWriter.String(dsp::streamName(transcriptEvent.stream));
+    jsonWriter.Key("final");
+    jsonWriter.Bool(transcriptEvent.isFinal);
+    jsonWriter.Key("ts");
+    jsonWriter.Double(transcriptEvent.tsMs);
     // Use the (data, length) overload rather than c_str(): text containing an
     // embedded NUL would otherwise be silently truncated at the first one.
-    w.Key("text");
-    w.String(ev.text.data(), static_cast<rapidjson::SizeType>(ev.text.size()));
-    w.EndObject();
-    return sb.GetString();
+    jsonWriter.Key("text");
+    jsonWriter.String(transcriptEvent.text.data(),
+                      static_cast<rapidjson::SizeType>(transcriptEvent.text.size()));
+    jsonWriter.EndObject();
+    return jsonBuffer.GetString();
 }
 
 // settings.json lives next to the exe (portable-app pattern) so double-click
@@ -184,12 +185,12 @@ int main(int argc, char** argv)
         }
 
         dsp::TranscriptModel model;
-        auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& ev) {
-            model.apply(ev);
+        auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& transcriptEvent) {
+            model.apply(transcriptEvent);
             if (cfg->headless)
             {
-                FILE* out = ev.isFinal ? stdout : stderr;
-                std::fprintf(out, "%s\n", buildTranscriptLine(ev).c_str());
+                FILE* out = transcriptEvent.isFinal ? stdout : stderr;
+                std::fprintf(out, "%s\n", buildTranscriptLine(transcriptEvent).c_str());
                 std::fflush(out);
             }
         });
@@ -255,14 +256,14 @@ int main(int argc, char** argv)
             return 0;
         }
 
-        const int rc = dsp::runUi(pipeline, model, *engine, *cfg);
+        const int uiExitCode = dsp::runUi(pipeline, model, *engine, *cfg);
         pipeline.stop();
         engine->stop();
-        if (rc == dsp::kRunUiRestartSetup)
+        if (uiExitCode == dsp::kRunUiRestartSetup)
         {
             showSetup = true;
             continue;
         }
-        return rc;
+        return uiExitCode;
     }
 }

@@ -7,20 +7,20 @@
 // relying on having received every broadcast while it was closed.
 let running = false;
 
-function render(st) {
-  if (!st) return;
-  running = st.capture === "running" || st.capture === "starting";
+function render(status) {
+  if (!status) return;
+  running = status.capture === "running" || status.capture === "starting";
   document.getElementById("toggle").textContent = running ? "Stop capture" : "Start capture";
   const set = (id, text, cls) => {
     const el = document.getElementById(id);
     el.textContent = text;
     el.className = cls;
   };
-  set("capture", st.capture, st.capture === "running" ? "ok" : "dim");
-  set("ws", st.ws, st.ws === "connected" ? "ok" : "bad");
-  set("engine", st.desktop ? `${st.desktop.engine} (${st.desktop.provider})` : "—", "dim");
-  set("streams", st.desktop ? `${st.desktop.streams.mic} / ${st.desktop.streams.tab}` : "— / —", "dim");
-  document.getElementById("error").textContent = st.error || "";
+  set("capture", status.capture, status.capture === "running" ? "ok" : "dim");
+  set("ws", status.ws, status.ws === "connected" ? "ok" : "bad");
+  set("engine", status.desktop ? `${status.desktop.engine} (${status.desktop.provider})` : "—", "dim");
+  set("streams", status.desktop ? `${status.desktop.streams.mic} / ${status.desktop.streams.tab}` : "— / —", "dim");
+  document.getElementById("error").textContent = status.error || "";
 }
 
 document.getElementById("toggle").addEventListener("click", async () => {

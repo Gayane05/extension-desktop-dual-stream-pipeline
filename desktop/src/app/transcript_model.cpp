@@ -29,10 +29,11 @@ void TranscriptModel::apply(const TranscriptEvent& ev)
     {
         return;
     }
-    Utterance u{ev.stream, ev.text, true, ev.tsMs};
-    auto it = std::upper_bound(finals_.begin(), finals_.end(), u.tsMs,
-                               [](double ts, const Utterance& x) { return ts < x.tsMs; });
-    finals_.insert(it, std::move(u));
+    Utterance utterance{ev.stream, ev.text, true, ev.tsMs};
+    auto it = std::upper_bound(
+        finals_.begin(), finals_.end(), utterance.tsMs,
+        [](double targetTs, const Utterance& existing) { return targetTs < existing.tsMs; });
+    finals_.insert(it, std::move(utterance));
 }
 
 // Finals are already sorted by tsMs (see apply()); each stream's pending
@@ -43,11 +44,11 @@ std::vector<Utterance> TranscriptModel::snapshot() const
 {
     std::lock_guard lk(mu_);
     std::vector<Utterance> out = finals_;
-    for (const auto& p : pending_)
+    for (const auto& pendingUtterance : pending_)
     {
-        if (p && !p->text.empty())
+        if (pendingUtterance && !pendingUtterance->text.empty())
         {
-            out.push_back(*p);
+            out.push_back(*pendingUtterance);
         }
     }
     return out;
@@ -65,14 +66,14 @@ std::string TranscriptModel::toText() const
 {
     std::lock_guard lk(mu_);
     std::string out;
-    for (const auto& u : finals_)
+    for (const auto& utterance : finals_)
     {
-        const auto totalSec = static_cast<long long>(u.tsMs / 1000.0);
+        const auto totalSec = static_cast<long long>(utterance.tsMs / 1000.0);
         char ts[16];
         std::snprintf(ts, sizeof(ts), "%02lld:%02lld:%02lld", (totalSec / 3600) % 24,
                       (totalSec / 60) % 60, totalSec % 60);
-        out += "[" + std::string(ts) + "] " + (u.stream == StreamId::Mic ? "You: " : "Others: ") +
-               u.text + "\n";
+        out += "[" + std::string(ts) + "] " +
+               (utterance.stream == StreamId::Mic ? "You: " : "Others: ") + utterance.text + "\n";
     }
     return out;
 }

@@ -13,31 +13,31 @@ namespace dsp {
 // regardless of which optional chunks a given WAV writer included.
 std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& error)
 {
-    std::ifstream f(path, std::ios::binary);
-    if (!f)
+    std::ifstream file(path, std::ios::binary);
+    if (!file)
     {
         error = "cannot open " + path;
         return std::nullopt;
     }
     char riff[4], wave[4];
     uint32_t riffSize = 0;
-    f.read(riff, 4);
-    f.read(reinterpret_cast<char*>(&riffSize), 4);
-    f.read(wave, 4);
-    if (!f || std::strncmp(riff, "RIFF", 4) != 0 || std::strncmp(wave, "WAVE", 4) != 0)
+    file.read(riff, 4);
+    file.read(reinterpret_cast<char*>(&riffSize), 4);
+    file.read(wave, 4);
+    if (!file || std::strncmp(riff, "RIFF", 4) != 0 || std::strncmp(wave, "WAVE", 4) != 0)
     {
         error = "not a RIFF/WAVE file";
         return std::nullopt;
     }
     WavData out;
     uint16_t channels = 0, bits = 0, fmt = 0;
-    while (f)
+    while (file)
     {
         char id[4];
         uint32_t size = 0;
-        f.read(id, 4);
-        f.read(reinterpret_cast<char*>(&size), 4);
-        if (!f)
+        file.read(id, 4);
+        file.read(reinterpret_cast<char*>(&size), 4);
+        if (!file)
         {
             break;
         }
@@ -53,8 +53,8 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
                 return std::nullopt;
             }
             std::vector<char> buf(size);
-            f.read(buf.data(), size);
-            if (!f)
+            file.read(buf.data(), size);
+            if (!file)
             {
                 error = "truncated fmt chunk";
                 return std::nullopt;
@@ -75,8 +75,8 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
                 return std::nullopt;
             }
             out.samples.resize(size / 2);
-            f.read(reinterpret_cast<char*>(out.samples.data()), size);
-            if (!f)
+            file.read(reinterpret_cast<char*>(out.samples.data()), size);
+            if (!file)
             {
                 error = "truncated data chunk";
                 return std::nullopt;
@@ -89,7 +89,7 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
             // next chunk header always starts on a 2-byte boundary; that pad
             // byte isn't part of `size`, so skip size+1 (not size) to land on
             // the next chunk's id rather than one byte short of it.
-            f.seekg(size + (size % 2), std::ios::cur);  // chunks are word-aligned
+            file.seekg(size + (size % 2), std::ios::cur);  // chunks are word-aligned
         }
     }
     error = "no data chunk";

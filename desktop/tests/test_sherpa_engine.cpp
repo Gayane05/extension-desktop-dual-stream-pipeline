@@ -17,11 +17,12 @@ using namespace dsp;
 static std::string modelDir()
 {
     // tests run from build tree; models live in <repo>/desktop/models
-    for (auto p : {"models", "../models", "../../models", "../../../models", "../../../../models"})
+    for (auto path :
+         {"models", "../models", "../../models", "../../../models", "../../../../models"})
     {
-        if (std::filesystem::exists(p))
+        if (std::filesystem::exists(path))
         {
-            return p;
+            return path;
         }
     }
     return "";
@@ -43,11 +44,11 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
     {
         GTEST_SKIP() << "model not downloaded (scripts/download-model.ps1)";
     }
-    std::mutex mu;
+    std::mutex eventsMutex;
     std::vector<TranscriptEvent> events;
-    SherpaEngine eng({.modelDir = dir, .provider = "cpu"}, [&](const TranscriptEvent& e) {
-        std::lock_guard lk(mu);
-        events.push_back(e);
+    SherpaEngine eng({.modelDir = dir, .provider = "cpu"}, [&](const TranscriptEvent& event) {
+        std::lock_guard lk(eventsMutex);
+        events.push_back(event);
     });
     std::string err;
     ASSERT_TRUE(eng.start(err)) << err;
@@ -57,9 +58,9 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
         eng.feed(StreamId::Mic, silence.data(), silence.size(), i * 100.0);
     }
     eng.stop();
-    std::lock_guard lk(mu);
-    for (auto& e : events)
+    std::lock_guard lk(eventsMutex);
+    for (auto& event : events)
     {
-        EXPECT_TRUE(e.text.empty() || !e.isFinal);  // no phantom finals
+        EXPECT_TRUE(event.text.empty() || !event.isFinal);  // no phantom finals
     }
 }
