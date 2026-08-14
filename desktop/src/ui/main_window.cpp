@@ -30,6 +30,12 @@ ID3D11DeviceContext* g_context = nullptr;
 IDXGISwapChain* g_swapChain = nullptr;
 ID3D11RenderTargetView* g_rtv = nullptr;
 bool g_usingWarp = false;
+// True when the Segoe MDL2 Assets icon glyphs merged into the font atlas
+// (see applyThemeAndFont); the Settings button falls back to a text label
+// on systems without that font.
+bool g_hasIconFont = false;
+// Segoe MDL2 Assets "Settings" gear glyph U+E713, UTF-8 encoded.
+constexpr const char* kIconSettings = "\xEE\x9C\x93";
 
 // D3D lifecycle: createDevice() (device+swapchain+RTV) pairs with
 // destroyDevice() (called once at shutdown), while createRenderTarget()
@@ -164,6 +170,21 @@ void applyThemeAndFont()
     if (!uiFont)
     {
         io.FontGlobalScale = 1.5f;
+    }
+    // Merge the Windows-native icon font (Segoe MDL2 Assets) into the same
+    // atlas so buttons can use standard system glyphs (e.g. the Settings
+    // gear). Only the small private-use range we need is loaded. If the font
+    // is missing, callers fall back to text labels via g_hasIconFont.
+    g_hasIconFont = false;
+    if (uiFont)
+    {
+        static const ImWchar iconRange[] = {0xE700, 0xE7FF, 0};
+        ImFontConfig merge;
+        merge.MergeMode = true;
+        merge.GlyphOffset = ImVec2(0.0f, 2.0f);  // optical alignment with text baseline
+        const std::string mdl2 = fontBase + "segmdl2.ttf";
+        g_hasIconFont =
+            io.Fonts->AddFontFromFileTTF(mdl2.c_str(), 18.0f, &merge, iconRange) != nullptr;
     }
 }
 
@@ -323,12 +344,17 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::SameLine();
         ImGui::Checkbox("Autoscroll", &autoscroll);
         ImGui::SameLine();
-        // Reopens the first-run mode chooser: this window closes, main()
-        // rebuilds the engine with whatever the user picks there.
-        if (ImGui::Button("Settings"))
+        // Reopens the mode chooser: this window closes, main() rebuilds the
+        // engine with whatever the user picks there. Gear icon when the
+        // system icon font is available, text label otherwise.
+        if (ImGui::Button(g_hasIconFont ? kIconSettings : "Settings"))
         {
             exitCode = kRunUiRestartSetup;
             done = true;
+        }
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::SetTooltip("Settings");
         }
         ImGui::Separator();
 
@@ -416,6 +442,16 @@ bool runSetupUi(Config& cfg)
 
     const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);
     const ImVec4 warnColor(1.0f, 0.75f, 0.35f, 1.0f);
+    // API key entry for Deepgram. Pre-filled from a previously saved key so
+    // the field doubles as "view/replace" on later Settings visits. Kept
+    // masked by default; the checkbox reveals it for verifying a paste.
+    char keyBuf[256] = {};
+    if (!cfg.deepgramKey.empty())
+    {
+        std::snprintf(keyBuf, sizeof(keyBuf), "%s", cfg.deepgramKey.c_str());
+    }
+    bool showKey = false;
+    const bool envKeyPresent = std::getenv("DEEPGRAM_API_KEY") != nullptr;
     bool chosen = false;
     bool done = false;
     while (!done)
@@ -480,13 +516,27 @@ bool runSetupUi(Config& cfg)
             done = true;
         }
         ImGui::TextColored(dimColor,
-                           "Streams audio to Deepgram's API. Best accuracy, punctuated output; "
-                           "requires the DEEPGRAM_API_KEY environment variable.");
-        if (!std::getenv("DEEPGRAM_API_KEY"))
+                           "Streams audio to Deepgram's API. Best accuracy, punctuated "
+                           "output; requires an API key (free at console.deepgram.com).");
+        ImGui::SetNextItemWidth(-130.0f);
+        ImGui::InputText("##dgkey", keyBuf, sizeof(keyBuf),
+                         showKey ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_Password);
+        ImGui::SameLine();
+        ImGui::Checkbox("show", &showKey);
+        if (keyBuf[0] == '\0')
         {
-            ImGui::TextColored(warnColor,
-                               "DEEPGRAM_API_KEY is not set in this environment -- this mode "
-                               "will fail to start until you set it.");
+            if (envKeyPresent)
+            {
+                ImGui::TextColored(dimColor,
+                                   "Using the DEEPGRAM_API_KEY environment variable; paste a "
+                                   "key above only to override it.");
+            }
+            else
+            {
+                ImGui::TextColored(warnColor,
+                                   "No API key found -- paste one above before choosing "
+                                   "Deepgram (or set DEEPGRAM_API_KEY).");
+            }
         }
 
         ImGui::End();
@@ -497,6 +547,19 @@ bool runSetupUi(Config& cfg)
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
         g_swapChain->Present(1, 0);
+    }
+
+    // Persist the key with whatever mode was chosen (typing a key and picking
+    // a local engine still saves it for a later switch). Trim whitespace --
+    // a trailing newline from a clipboard paste would corrupt the HTTP
+    // Authorization header.
+    if (chosen)
+    {
+        std::string key(keyBuf);
+        const auto first = key.find_first_not_of(" \t\r\n");
+        const auto last = key.find_last_not_of(" \t\r\n");
+        cfg.deepgramKey =
+            (first == std::string::npos) ? "" : key.substr(first, last - first + 1);
     }
 
     ImGui_ImplDX11_Shutdown();

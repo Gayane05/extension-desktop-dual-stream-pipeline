@@ -197,7 +197,7 @@ overridden, the app looks for `models/` next to the exe and up to two parent lev
 (so `desktop\models` is found from `desktop\build\Release`). A console window opens
 alongside the UI — that is expected (the same binary serves `--headless` runs).
 
-**Settings.** The **Settings** button in the main window opens a mode chooser —
+**Settings.** The **Settings** button (gear icon) in the main window opens a mode chooser —
 local sherpa on GPU (CUDA), local sherpa on CPU, or the Deepgram cloud API — and
 restarts the engine with the new choice. The choice is saved to `settings.json` next
 to the exe and applied automatically on every later start. Precedence: built-in
@@ -297,8 +297,9 @@ cd desktop
 cd ..
 ```
 
-Never commit your API key. It is read only from the `DEEPGRAM_API_KEY` environment
-variable, never from a config file or CLI flag.
+Alternatively, paste the key into the field on the Settings screen (gear icon) — it is
+stored locally next to the exe (that file is gitignored) and takes precedence over the
+environment variable. Never commit your API key; it is never read from a CLI flag.
 
 ## Testing & demo without Chrome
 

@@ -198,6 +198,10 @@ bool loadSettingsFile(const std::string& path, Config& into)
             into.provider = v;
         }
     }
+    if (d.HasMember("deepgramKey") && d["deepgramKey"].IsString())
+    {
+        into.deepgramKey = d["deepgramKey"].GetString();
+    }
     return true;
 }
 
@@ -210,6 +214,11 @@ bool saveSettingsFile(const std::string& path, const Config& cfg)
     w.String(cfg.engine.c_str());
     w.Key("provider");
     w.String(cfg.provider.c_str());
+    if (!cfg.deepgramKey.empty())
+    {
+        w.Key("deepgramKey");
+        w.String(cfg.deepgramKey.c_str());
+    }
     w.EndObject();
 
     FILE* f = nullptr;

@@ -75,7 +75,9 @@ bool DeepgramEngine::start(std::string& error)
 {
     if (opts_.deepgramKey.empty())
     {
-        error = "DEEPGRAM_API_KEY not set (required for --engine deepgram)";
+        error =
+            "no Deepgram API key configured -- set the DEEPGRAM_API_KEY environment "
+            "variable or enter a key in the Settings screen";
         return false;
     }
     // encoding/sample_rate/channels here must match what feed() actually

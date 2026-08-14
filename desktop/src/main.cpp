@@ -84,7 +84,14 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     opts.provider = cfg.provider;
     opts.decoding = cfg.decoding;
     opts.endpointSilenceSec = cfg.endpointSilenceSec;
-    if (const char* k = std::getenv("DEEPGRAM_API_KEY"))
+    // Key precedence: one entered in the Settings screen (persisted with the
+    // saved settings) wins; the DEEPGRAM_API_KEY environment variable is the
+    // fallback so scripted/headless runs keep working without any UI.
+    if (!cfg.deepgramKey.empty())
+    {
+        opts.deepgramKey = cfg.deepgramKey;
+    }
+    else if (const char* k = std::getenv("DEEPGRAM_API_KEY"))
     {
         opts.deepgramKey = k;
     }

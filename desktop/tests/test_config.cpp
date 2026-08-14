@@ -37,12 +37,14 @@ TEST(Config, SettingsFileRoundTrip)
     Config out;
     out.engine = "deepgram";
     out.provider = "cuda";
+    out.deepgramKey = "abc123testkey";
     const std::string path = std::string(::testing::TempDir()) + "settings-roundtrip.json";
     ASSERT_TRUE(saveSettingsFile(path, out));
     Config in;
     ASSERT_TRUE(loadSettingsFile(path, in));
     EXPECT_EQ(in.engine, "deepgram");
     EXPECT_EQ(in.provider, "cuda");
+    EXPECT_EQ(in.deepgramKey, "abc123testkey");
 }
 
 TEST(Config, SettingsFileMissingLeavesDefaults)
