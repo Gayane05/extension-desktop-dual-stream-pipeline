@@ -23,7 +23,7 @@ TEST(Config, Defaults)
     std::string err;
     auto c = parse({}, err);
     ASSERT_TRUE(c);
-    EXPECT_EQ(c->engine, "sherpa");
+    EXPECT_EQ(c->engine, "deepgram");
     EXPECT_EQ(c->provider, "cpu");
     EXPECT_EQ(c->port, 8765);
     EXPECT_EQ(c->decoding, "beam");
@@ -49,7 +49,7 @@ TEST(Config, SettingsFileMissingLeavesDefaults)
 {
     Config in;
     EXPECT_FALSE(loadSettingsFile("Z:/definitely/missing/settings.json", in));
-    EXPECT_EQ(in.engine, "sherpa");
+    EXPECT_EQ(in.engine, "deepgram");
     EXPECT_EQ(in.provider, "cpu");
 }
 
@@ -59,8 +59,8 @@ TEST(Config, SettingsFileInvalidValuesIgnored)
     std::ofstream(path) << R"({"engine":"whisper","provider":"cuda"})";
     Config in;
     EXPECT_TRUE(loadSettingsFile(path, in));
-    EXPECT_EQ(in.engine, "sherpa");  // invalid engine value fell back to default
-    EXPECT_EQ(in.provider, "cuda");  // valid provider still applied
+    EXPECT_EQ(in.engine, "deepgram");  // invalid engine value fell back to default
+    EXPECT_EQ(in.provider, "cuda");    // valid provider still applied
 }
 
 TEST(Config, CliOverridesSettingsFileBase)

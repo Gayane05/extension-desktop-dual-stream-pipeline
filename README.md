@@ -6,10 +6,14 @@ streams both to a local **C++ desktop app** over a WebSocket. The desktop app tr
 each stream independently, live, and renders a chronologically merged, two-lane transcript:
 blue **You** (mic) lines and orange **Others** (tab) lines.
 
-Everything is local-first: the default speech engine ([sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
-streaming Zipformer) runs entirely on CPU with no accounts, keys, or network calls at
-inference time. CUDA/TensorRT acceleration and a Deepgram cloud backend are available as
-opt-in flags (see [GPU acceleration](#gpu-acceleration) and [Deepgram backend](#deepgram-backend)).
+Two interchangeable speech engines sit behind one interface: the
+[Deepgram](https://deepgram.com) cloud API (the out-of-box default — best accuracy,
+punctuated output, needs an API key) and a fully local
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) streaming Zipformer that runs
+on-device with no accounts, keys, or network calls at inference time (`--engine sherpa`),
+with optional CUDA/TensorRT acceleration (see [GPU acceleration](#gpu-acceleration) and
+[Deepgram backend](#deepgram-backend)). An in-app Settings screen switches modes at
+runtime and remembers the choice.
 
 ![Two-lane transcript](docs/screenshot.png)
 
@@ -158,11 +162,13 @@ onnxruntime, etc.) staged automatically next to each executable by the CMake bui
 ### Desktop app
 
 Run from the `desktop/` directory (the default `--model-dir models` is relative to the
-current working directory):
+current working directory). The default engine is **Deepgram**, which needs
+`DEEPGRAM_API_KEY` set (see [Deepgram backend](#deepgram-backend)) — pass
+`--engine sherpa` for the fully local, no-account path:
 
 ```powershell
 cd desktop
-.\build\Release\transcriber.exe
+.\build\Release\transcriber.exe --engine sherpa
 cd ..
 ```
 
@@ -175,7 +181,7 @@ Flags:
 
 | Flag | Values | Default | Description |
 |---|---|---|---|
-| `--engine` | `sherpa` \| `deepgram` | `sherpa` | STT backend |
+| `--engine` | `sherpa` \| `deepgram` | `deepgram` | STT backend (`sherpa` = fully local, no account needed) |
 | `--provider` | `cpu` \| `cuda` \| `tensorrt` | `cpu` | ONNX Runtime execution provider (sherpa engine only) |
 | `--port` | 1–65535 | `8765` | WebSocket listen port |
 | `--model-dir` | path | `models` | Directory containing the sherpa-onnx model files |
@@ -191,14 +197,14 @@ overridden, the app looks for `models/` next to the exe and up to two parent lev
 (so `desktop\models` is found from `desktop\build\Release`). A console window opens
 alongside the UI — that is expected (the same binary serves `--headless` runs).
 
-**First run & settings.** The first GUI launch (no saved settings, no explicit
-`--engine`/`--provider` flags) opens a setup screen asking how to run speech-to-text:
-local sherpa on GPU (CUDA), local sherpa on CPU, or the Deepgram cloud API. The choice
-is saved to `settings.json` next to the exe and used automatically on every later
-start. The **Settings** button in the main window reopens the chooser and restarts
-the engine with the new choice. Precedence: built-in defaults < `settings.json` <
-explicit CLI flags (a passed `--engine`/`--provider` always wins and also skips the
-first-run chooser). Headless runs never show UI and ignore the chooser entirely.
+**Settings.** The **Settings** button in the main window opens a mode chooser —
+local sherpa on GPU (CUDA), local sherpa on CPU, or the Deepgram cloud API — and
+restarts the engine with the new choice. The choice is saved to `settings.json` next
+to the exe and applied automatically on every later start. Precedence: built-in
+defaults (Deepgram) < `settings.json` < explicit CLI flags. If the configured engine
+fails to start in GUI mode (e.g. Deepgram without `DEEPGRAM_API_KEY`), the error is
+shown and the chooser opens so you can pick a working mode. Headless runs never show
+UI and use the resolved config as-is.
 
 ### Chrome extension
 
@@ -224,7 +230,8 @@ again in the popup.
    - First time only: grant mic permission via the permission page, then click **Start
      capture** again.
 5. The popup's status rows mirror the desktop app: **Capture** → running, **Desktop app** →
-   connected, **Engine** → `sherpa (cpu)`, **Mic / Tab** → streaming / streaming.
+   connected, **Engine** → the active engine/provider (e.g. `sherpa (cpu)` or
+   `deepgram (cloud)`), **Mic / Tab** → streaming / streaming.
 6. Speak — your words appear as blue **You** lines in the desktop window. Other
    participants' audio appears as orange **Others** lines. Interim (in-progress) text shows
    dim/italic and firms into a final line as sherpa-onnx's endpoint detector fires.
@@ -257,7 +264,7 @@ Then run with:
 
 ```powershell
 cd desktop
-.\build\Release\transcriber.exe --provider cuda
+.\build\Release\transcriber.exe --engine sherpa --provider cuda
 cd ..
 ```
 
@@ -338,12 +345,13 @@ to watch the transcript render live instead of reading JSONL from stdout.
   Native messaging needs a registry entry per install and base64-encodes all audio over
   stdio. Plain WS binary frames on loopback are the zero-friction fit for a 2×32 KB/s
   stream, and it's the same pattern Deepgram's own live API uses.
-- **Local-first STT (sherpa-onnx streaming Zipformer) as the default, Deepgram as an
-  alternative.** True word-by-word streaming (unlike chunked-window models like Whisper), a
-  pure C++ integration with no accounts or API keys needed to run the project at all, a CPU
-  default that keeps behavior reproducible on any machine, and CUDA/TensorRT knobs to
-  exploit available hardware. Deepgram sits behind the same `ISttEngine` interface as a
-  cloud alternative and a quality benchmark, selectable with one flag.
+- **Two engines behind one `ISttEngine` interface: Deepgram (default) and local
+  sherpa-onnx.** Deepgram gives the best out-of-box accuracy with cased, punctuated
+  output; sherpa-onnx (streaming Zipformer) keeps the whole project runnable with zero
+  accounts or API keys — true word-by-word streaming (unlike chunked-window models like
+  Whisper), pure C++ integration, a CPU mode that reproduces on any machine, and
+  CUDA/TensorRT knobs to exploit available hardware. One flag (or the in-app Settings
+  screen) switches between them.
 - **ImGui + Win32 + D3D11, with a WARP software fallback.** A real GUI with a single
   lightweight Conan dependency; `D3D_DRIVER_TYPE_WARP` guarantees the app still renders on
   GPU-less machines (VMs, RDP sessions) where hardware device creation fails.
@@ -361,7 +369,7 @@ to watch the transcript render live instead of reading JSONL from stdout.
    ```powershell
    powershell -File scripts/download-model.ps1 -Model sherpa-onnx-streaming-zipformer-en-2023-06-21
    cd desktop
-   .\build\Release\transcriber.exe --model-dir models\sherpa-onnx-streaming-zipformer-en-2023-06-21
+   .\build\Release\transcriber.exe --engine sherpa --model-dir models\sherpa-onnx-streaming-zipformer-en-2023-06-21
    cd ..
    ```
 2. Keep `--decoding beam` (the default); `greedy` is faster but less accurate.

@@ -11,7 +11,7 @@
 
 namespace dsp {
 struct Config {
-    std::string engine = "sherpa";
+    std::string engine = "deepgram";
     std::string provider = "cpu";
     int port = 8765;
     std::string modelDir = "models";
@@ -21,9 +21,9 @@ struct Config {
     double endpointSilenceSec = 0.8;
     bool headless = false;
     double durationSec = 0;
-    // True when --engine or --provider was given on the command line. The GUI
-    // uses this to skip the first-run mode chooser: an explicit flag means
-    // the user already said how they want to run. Not persisted.
+    // True when --engine or --provider was given on the command line. Not
+    // persisted; kept so callers can distinguish an explicit CLI choice from
+    // defaults/settings-file values.
     bool engineOrProviderExplicit = false;
 };
 
