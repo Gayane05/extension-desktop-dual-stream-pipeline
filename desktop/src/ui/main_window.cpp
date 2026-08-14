@@ -147,7 +147,31 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     // a cramped 4x3); a touch more rounding keeps them looking intentional.
     ImGuiStyle& style = ImGui::GetStyle();
     style.FramePadding = ImVec2(14.0f, 8.0f);
-    style.FrameRounding = 3.0f;
+    style.FrameRounding = 5.0f;
+    style.ChildRounding = 5.0f;
+    style.GrabRounding = 5.0f;
+    style.ScrollbarRounding = 5.0f;
+    style.ItemSpacing = ImVec2(10.0f, 8.0f);
+    style.WindowPadding = ImVec2(14.0f, 12.0f);
+    // Cohesive dark-slate palette with indigo controls, replacing the stock
+    // grey theme. Transcript lane colors (blue/orange) are set further down.
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_WindowBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0.105f, 0.115f, 0.145f, 1.00f);
+    colors[ImGuiCol_Text] = ImVec4(0.92f, 0.93f, 0.95f, 1.00f);
+    colors[ImGuiCol_Border] = ImVec4(0.25f, 0.27f, 0.35f, 0.50f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.23f, 0.34f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.26f, 0.30f, 0.44f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.31f, 0.36f, 0.53f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.27f, 0.32f, 0.52f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.34f, 0.40f, 0.65f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.49f, 0.78f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.62f, 0.72f, 1.00f, 1.00f);
+    colors[ImGuiCol_Separator] = ImVec4(0.25f, 0.27f, 0.35f, 0.60f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.28f, 0.31f, 0.42f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.40f, 0.55f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.44f, 0.50f, 0.70f, 1.00f);
     // Replace ImGui's 13px bitmap default with a larger, softer system font.
     // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
     // neither loads (non-standard Windows install), scale the bitmap default
@@ -174,7 +198,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 
     const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);  // blue - You
     const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);  // orange - Others
-    const ImVec4 dimColor(0.6f, 0.6f, 0.6f, 1.0f);
+    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);  // slate-tinted secondary text
     const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
     bool autoscroll = true;
     std::string saveStatus;        // empty when nothing to report
@@ -290,7 +314,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.08f, 0.08f, 0.10f, 1.0f};
+        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // match WindowBg
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
