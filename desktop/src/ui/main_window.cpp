@@ -186,8 +186,15 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine,
             const bool mic = u.stream == StreamId::Mic;
             ImGui::TextColored(mic ? micColor : tabColor, mic ? "You:" : "Others:");
             ImGui::SameLine();
-            if (u.isFinal) ImGui::TextWrapped("%s", u.text.c_str());
-            else ImGui::TextColored(dimColor, "%s ...", u.text.c_str());
+            if (u.isFinal) {
+                ImGui::TextWrapped("%s", u.text.c_str());
+            } else {
+                // TextColored does not word-wrap; long sherpa interims (a whole
+                // utterance until the endpoint fires) would overflow the window.
+                ImGui::PushStyleColor(ImGuiCol_Text, dimColor);
+                ImGui::TextWrapped("%s ...", u.text.c_str());
+                ImGui::PopStyleColor();
+            }
         }
         if (autoscroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 40)
             ImGui::SetScrollHereY(1.0f);
