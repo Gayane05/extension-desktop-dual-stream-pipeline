@@ -25,20 +25,30 @@ static ModelFiles scanModelDir(const fs::path& d)
 {
     ModelFiles f;
     if (!fs::exists(d))
+    {
         return f;
+    }
     for (auto& e : fs::directory_iterator(d))
     {
         auto name = e.path().filename().string();
         bool onnx = name.size() > 5 && name.substr(name.size() - 5) == ".onnx";
         bool int8 = name.find("int8") != std::string::npos;
         if (name == "tokens.txt")
+        {
             f.tokens = e.path().string();
+        }
         else if (onnx && !int8 && name.rfind("encoder", 0) == 0)
+        {
             f.encoder = e.path().string();
+        }
         else if (onnx && !int8 && name.rfind("decoder", 0) == 0)
+        {
             f.decoder = e.path().string();
+        }
         else if (onnx && !int8 && name.rfind("joiner", 0) == 0)
+        {
             f.joiner = e.path().string();
+        }
     }
     return f;
 }
@@ -48,12 +58,22 @@ static ModelFiles scanModelDir(const fs::path& d)
 static ModelFiles findModelFiles(const fs::path& dir)
 {
     if (auto f = scanModelDir(dir); f.complete())
+    {
         return f;
+    }
     if (fs::exists(dir))
+    {
         for (auto& e : fs::directory_iterator(dir))
+        {
             if (e.is_directory())
+            {
                 if (auto f = scanModelDir(e.path()); f.complete())
+                {
                     return f;
+                }
+            }
+        }
+    }
     return {};
 }
 
@@ -88,7 +108,9 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     const bool beam = opts_.decoding != "greedy";
     cfg.decoding_method = beam ? "modified_beam_search" : "greedy_search";
     if (beam)
+    {
         cfg.max_active_paths = 4;
+    }
     cfg.feat_config.sample_rate = 16000;
     cfg.feat_config.feature_dim = 80;
     // Endpointing controls how utterances split into finals: rule2 fires
@@ -151,9 +173,13 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     {
         int v = samples[i];
         if (v < 0)
+        {
             v = -v;
+        }
         if (v > peak)
+        {
             peak = v;
+        }
         f[i] = samples[i] / 32768.0f;
     }
     // ~0.3% of full scale: anything below is digital silence (muted source),
@@ -162,13 +188,19 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
 
     std::lock_guard lk(mu_);
     if (peak > kVoiceThreshold)
+    {
         voiced_[idx] = true;
+    }
     if (!rec_ || !streams_[idx])
+    {
         return;
+    }
     auto* stream = streams_[idx];
     SherpaOnnxOnlineStreamAcceptWaveform(stream, 16000, f.data(), static_cast<int32_t>(n));
     while (SherpaOnnxIsOnlineStreamReady(rec_, stream))
+    {
         SherpaOnnxDecodeOnlineStream(rec_, stream);
+    }
 
     const SherpaOnnxOnlineRecognizerResult* r = SherpaOnnxGetOnlineStreamResult(rec_, stream);
     std::string text = (r && r->text) ? r->text : "";
@@ -180,7 +212,9 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     if (SherpaOnnxOnlineStreamIsEndpoint(rec_, stream))
     {
         if (!text.empty() && voiced_[idx])
+        {
             cb_({s, text, true, tsMs});
+        }
         SherpaOnnxOnlineStreamReset(rec_, stream);
         lastInterim_[idx].clear();
         voiced_[idx] = false;  // next utterance must re-prove it has signal
@@ -189,7 +223,9 @@ void SherpaEngine::feed(StreamId s, const int16_t* samples, size_t n, double tsM
     {
         lastInterim_[idx] = text;
         if (!text.empty() && voiced_[idx])
+        {
             cb_({s, text, false, tsMs});
+        }
     }
 }
 
@@ -197,11 +233,13 @@ void SherpaEngine::stop()
 {
     std::lock_guard lk(mu_);
     for (auto*& st : streams_)
+    {
         if (st)
         {
             SherpaOnnxDestroyOnlineStream(st);
             st = nullptr;
         }
+    }
     if (rec_)
     {
         SherpaOnnxDestroyOnlineRecognizer(rec_);

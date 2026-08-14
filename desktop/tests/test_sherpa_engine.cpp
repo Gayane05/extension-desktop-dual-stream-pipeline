@@ -16,7 +16,9 @@ static std::string modelDir()
     for (auto p : {"models", "../models", "../../models", "../../../models", "../../../../models"})
     {
         if (std::filesystem::exists(p))
+        {
             return p;
+        }
     }
     return "";
 }
@@ -34,7 +36,9 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
 {
     auto dir = modelDir();
     if (dir.empty())
+    {
         GTEST_SKIP() << "model not downloaded (scripts/download-model.ps1)";
+    }
     std::mutex mu;
     std::vector<TranscriptEvent> events;
     SherpaEngine eng({.modelDir = dir, .provider = "cpu"}, [&](const TranscriptEvent& e) {
@@ -45,9 +49,13 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
     ASSERT_TRUE(eng.start(err)) << err;
     std::vector<int16_t> silence(1600, 0);
     for (int i = 0; i < 20; ++i)  // 2 s of silence
+    {
         eng.feed(StreamId::Mic, silence.data(), silence.size(), i * 100.0);
+    }
     eng.stop();
     std::lock_guard lk(mu);
     for (auto& e : events)
+    {
         EXPECT_TRUE(e.text.empty() || !e.isFinal);  // no phantom finals
+    }
 }

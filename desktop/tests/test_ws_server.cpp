@@ -21,7 +21,9 @@ bool waitFor(Pred p, std::chrono::milliseconds timeout = 5000ms)
     while (std::chrono::steady_clock::now() < deadline)
     {
         if (p())
+        {
             return true;
+        }
         std::this_thread::sleep_for(10ms);
     }
     return p();
@@ -39,7 +41,9 @@ TEST(WsServer, HelloThenAudioReachesCallback)
                         .onAudio =
                             [&](AudioFrame&& f) {
                                 if (f.stream == StreamId::Mic)
+                                {
                                     frames++;
+                                }
                             },
                         .onHello = [&](const HelloInfo& h) { gotHello = h.sampleRate == 16000; },
                         .onClientGone = [&] { gone = true; },
@@ -52,7 +56,9 @@ TEST(WsServer, HelloThenAudioReachesCallback)
     std::atomic<bool> open{false};
     client.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             open = true;
+        }
     });
     client.start();
     ASSERT_TRUE(waitFor([&] { return open.load(); }));
@@ -89,7 +95,9 @@ TEST(WsServer, AudioBeforeHelloIsDropped)
     std::atomic<bool> open{false};
     client.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             open = true;
+        }
     });
     client.start();
     ASSERT_TRUE(waitFor([&] { return open.load(); }));
@@ -120,12 +128,18 @@ TEST(WsServer, BadHelloGetsErrorAndClose)
     std::atomic<bool> open{false}, gotError{false}, closed{false};
     client.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             open = true;
+        }
         else if (msg->type == ix::WebSocketMessageType::Message && !msg->binary &&
                  msg->str.find("\"type\":\"error\"") != std::string::npos)
+        {
             gotError = true;
+        }
         else if (msg->type == ix::WebSocketMessageType::Close)
+        {
             closed = true;
+        }
     });
     client.disableAutomaticReconnection();  // so server-close doesn't trigger reconnect loops
     client.start();
@@ -153,7 +167,9 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
                                .onAudio =
                                    [&](AudioFrame&& f) {
                                        if (f.stream == StreamId::Mic)
+                                       {
                                            framesA++;
+                                       }
                                    },
                                .onHello = [&](const HelloInfo&) { helloCount++; },
                                .onClientGone = [&] { goneCount++; },
@@ -166,7 +182,9 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
     std::atomic<bool> aOpen{false};
     a.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             aOpen = true;
+        }
     });
     a.start();
     ASSERT_TRUE(waitFor([&] { return aOpen.load(); }));
@@ -178,12 +196,18 @@ TEST(WsServer, SecondClientHelloIsRejectedFirstKeepsStreaming)
     std::atomic<bool> bOpen{false}, bGotError{false}, bClosed{false};
     b.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             bOpen = true;
+        }
         else if (msg->type == ix::WebSocketMessageType::Message && !msg->binary &&
                  msg->str.find("\"type\":\"error\"") != std::string::npos)
+        {
             bGotError = true;
+        }
         else if (msg->type == ix::WebSocketMessageType::Close)
+        {
             bClosed = true;
+        }
     });
     b.disableAutomaticReconnection();
     b.start();

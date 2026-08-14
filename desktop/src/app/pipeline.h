@@ -24,7 +24,9 @@ public:
     {
         const int64_t last = lastFrameMs_[static_cast<int>(s)].load();
         if (last == 0)
+        {
             return "idle";
+        }
         const auto now = std::chrono::steady_clock::now().time_since_epoch();
         const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
         return (nowMs - last) <= 2000 ? "streaming" : "idle";

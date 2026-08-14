@@ -59,13 +59,19 @@ int main(int argc, char** argv)
     std::atomic<bool> open{false};
     ws.setOnMessageCallback([&](const ix::WebSocketMessagePtr& msg) {
         if (msg->type == ix::WebSocketMessageType::Open)
+        {
             open = true;
+        }
         else if (msg->type == ix::WebSocketMessageType::Message && !msg->binary)
+        {
             std::fprintf(stderr, "server: %s\n", msg->str.c_str());
+        }
     });
     ws.start();
     for (int i = 0; i < 500 && !open; ++i)
+    {
         std::this_thread::sleep_for(10ms);
+    }
     if (!open)
     {
         std::fprintf(stderr, "cannot connect to port %d\n", port);
@@ -83,7 +89,9 @@ int main(int argc, char** argv)
         double tsMs = duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
         auto sendChunk = [&](StreamId id, const std::vector<int16_t>& pcm) {
             if (off >= pcm.size())
+            {
                 return;
+            }
             size_t n = std::min(kChunk, pcm.size() - off);
             auto frame = serializeBinaryFrame(id, tsMs, pcm.data() + off, n);
             ws.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));

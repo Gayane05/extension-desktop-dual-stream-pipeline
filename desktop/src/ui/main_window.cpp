@@ -86,7 +86,9 @@ void destroyDevice()
 LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 {
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, w, l))
+    {
         return true;
+    }
     switch (msg)
     {
         case WM_SIZE:
@@ -163,10 +165,14 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
             ::TranslateMessage(&msg);
             ::DispatchMessageW(&msg);
             if (msg.message == WM_QUIT)
+            {
                 done = true;
+            }
         }
         if (done)
+        {
             break;
+        }
 
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -195,7 +201,9 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
                            static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Mic)),
                            static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Tab)));
         if (ImGui::Button("Clear"))
+        {
             model.clear();
+        }
         ImGui::SameLine();
         if (ImGui::Button("Save transcript"))
         {
@@ -248,7 +256,9 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
             }
         }
         if (autoscroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 40)
+        {
             ImGui::SetScrollHereY(1.0f);
+        }
         ImGui::EndChild();
         ImGui::End();
 

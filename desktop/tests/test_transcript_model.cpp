@@ -79,11 +79,15 @@ TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke)
     constexpr int kN = 5000;
     std::thread micWriter([&] {
         for (int i = 0; i < kN; ++i)
+        {
             m.apply({StreamId::Mic, "mic " + std::to_string(i), i % 10 == 9, i * 10.0});
+        }
     });
     std::thread tabWriter([&] {
         for (int i = 0; i < kN; ++i)
+        {
             m.apply({StreamId::Tab, "tab " + std::to_string(i), i % 10 == 9, i * 10.0 + 5.0});
+        }
     });
     std::atomic<bool> done{false};
     std::thread reader([&] {
@@ -100,5 +104,7 @@ TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke)
     auto s = m.snapshot();
     EXPECT_EQ(s.size(), kN / 10 * 2u);  // 500 finals per lane
     for (size_t i = 1; i < s.size(); ++i)
+    {
         EXPECT_LE(s[i - 1].tsMs, s[i].tsMs);  // sorted invariant held
+    }
 }

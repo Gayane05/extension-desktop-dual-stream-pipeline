@@ -27,7 +27,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         if (a == "--engine")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             if (v != "sherpa" && v != "deepgram")
             {
                 error = "engine must be sherpa|deepgram";
@@ -38,7 +40,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         else if (a == "--provider")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             if (v != "cpu" && v != "cuda" && v != "tensorrt")
             {
                 error = "provider must be cpu|cuda|tensorrt";
@@ -49,7 +53,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         else if (a == "--port")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             auto res = std::from_chars(v.data(), v.data() + v.size(), c.port);
             if (res.ec != std::errc{} || res.ptr != v.data() + v.size() || c.port <= 0 ||
                 c.port > 65535)
@@ -61,13 +67,17 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         else if (a == "--model-dir")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             c.modelDir = v;
         }
         else if (a == "--decoding")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             if (v != "beam" && v != "greedy")
             {
                 error = "decoding must be beam|greedy";
@@ -78,7 +88,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         else if (a == "--endpoint-silence")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             try
             {
                 c.endpointSilenceSec = std::stod(v);
@@ -101,7 +113,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         else if (a == "--duration")
         {
             if (!takeValue(argc, argv, i, v, error))
+            {
                 return std::nullopt;
+            }
             try
             {
                 c.durationSec = std::stod(v);

@@ -15,22 +15,34 @@ std::optional<TranscriptEvent> parseDeepgramMessage(StreamId s, const std::strin
     rapidjson::Document d;
     d.Parse(json.c_str());
     if (d.HasParseError() || !d.IsObject())
+    {
         return std::nullopt;
+    }
     if (!d.HasMember("type") || !d["type"].IsString() ||
         std::string(d["type"].GetString()) != "Results")
+    {
         return std::nullopt;
+    }
     if (!d.HasMember("channel") || !d["channel"].IsObject())
+    {
         return std::nullopt;
+    }
     const auto& ch = d["channel"];
     if (!ch.HasMember("alternatives") || !ch["alternatives"].IsArray() ||
         ch["alternatives"].Empty())
+    {
         return std::nullopt;
+    }
     const auto& alt = ch["alternatives"][0];
     if (!alt.HasMember("transcript") || !alt["transcript"].IsString())
+    {
         return std::nullopt;
+    }
     std::string text = alt["transcript"].GetString();
     if (text.empty())
+    {
         return std::nullopt;
+    }
     bool isFinal = d.HasMember("is_final") && d["is_final"].IsBool() && d["is_final"].GetBool();
     return TranscriptEvent{s, text, isFinal, nowMs};
 }
@@ -75,7 +87,9 @@ bool DeepgramEngine::start(std::string& error)
             if (msg->type == ix::WebSocketMessageType::Message && !msg->binary)
             {
                 if (auto ev = parseDeepgramMessage(s, msg->str, nowMs()))
+                {
                     cb_(*ev);
+                }
             }
             else if (msg->type == ix::WebSocketMessageType::Error)
             {
@@ -103,19 +117,23 @@ void DeepgramEngine::feed(StreamId s, const int16_t* samples, size_t n, double /
 {
     auto& ws = ws_[static_cast<int>(s)];
     if (!ws)
+    {
         return;
+    }
     ws->sendBinary(std::string(reinterpret_cast<const char*>(samples), n * 2));
 }
 
 void DeepgramEngine::stop()
 {
     for (auto& ws : ws_)
+    {
         if (ws)
         {
             ws->sendText(R"({"type":"CloseStream"})");
             ws->stop();
             ws.reset();
         }
+    }
 }
 
 }  // namespace dsp

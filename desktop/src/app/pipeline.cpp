@@ -29,8 +29,10 @@ bool Pipeline::start(std::string& error)
                     if (!rings_[i].tryPush(std::move(f)))
                     {
                         if (dropped_[i]++ == 0)
+                        {
                             std::fprintf(stderr, "warning: dropping frames for %s (ring full)\n",
                                          streamName(sid));
+                        }
                     }
                 },
             .onHello =
@@ -49,7 +51,9 @@ bool Pipeline::start(std::string& error)
                 },
         });
     if (!server_->start(error))
+    {
         return false;
+    }
     workers_[0] = std::thread([this] { workerLoop(StreamId::Mic); });
     workers_[1] = std::thread([this] { workerLoop(StreamId::Tab); });
     return true;
@@ -93,22 +97,34 @@ void Pipeline::pushStatus()
     // exits). This narrows the use-after-free window to practical zero
     // without needing a mutex around every broadcast.
     if (stopping_.load())
+    {
         return;
+    }
     if (server_)
+    {
         server_->broadcast(buildStatusJson(engine_.name(), engine_.effectiveProvider(),
                                            streamState(StreamId::Mic), streamState(StreamId::Tab)));
+    }
 }
 
 void Pipeline::stop()
 {
     stopping_.store(true);
     if (server_)
+    {
         server_->stop();
+    }
     for (auto& r : rings_)
+    {
         r.close();
+    }
     for (auto& w : workers_)
+    {
         if (w.joinable())
+        {
             w.join();
+        }
+    }
     server_.reset();
 }
 

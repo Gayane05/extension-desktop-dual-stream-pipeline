@@ -41,9 +41,13 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     opts.decoding = cfg.decoding;
     opts.endpointSilenceSec = cfg.endpointSilenceSec;
     if (const char* k = std::getenv("DEEPGRAM_API_KEY"))
+    {
         opts.deepgramKey = k;
+    }
     if (cfg.engine == "deepgram")
+    {
         return std::make_unique<dsp::DeepgramEngine>(opts, std::move(cb));
+    }
     return std::make_unique<dsp::SherpaEngine>(opts, std::move(cb));
 }
 
@@ -135,7 +139,9 @@ int main(int argc, char** argv)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             if (++tick % 10 == 0)
+            {
                 pipeline.pushStatus();
+            }
         }
         pipeline.stop();
         engine->stop();

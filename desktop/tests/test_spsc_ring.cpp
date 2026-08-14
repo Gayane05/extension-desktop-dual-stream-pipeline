@@ -42,8 +42,12 @@ TEST(SpscRing, ThreadedSmoke)
     constexpr int kN = 100000;
     std::thread producer([&] {
         for (int i = 0; i < kN;)
+        {
             if (q.tryPush(std::move(i)))
+            {
                 ++i;
+            }
+        }
         q.close();
     });
     int expected = 0;
@@ -66,7 +70,9 @@ TEST(SpscRing, CloseWakesBlockedConsumer)
         p.set_value(q->popWait());
     }).detach();
     while (!*started)
+    {
         std::this_thread::yield();
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(50));  // let it park
     q->close();
     ASSERT_EQ(fut.wait_for(std::chrono::seconds(5)), std::future_status::ready)

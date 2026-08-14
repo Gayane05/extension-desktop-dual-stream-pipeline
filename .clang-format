@@ -23,3 +23,5 @@ BraceWrapping:
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Inline
+# Always brace control-statement bodies, even single statements.
+InsertBraces: true

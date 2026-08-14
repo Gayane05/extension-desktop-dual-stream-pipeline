@@ -32,14 +32,18 @@ bool WsServer::start(std::string& error)
                 std::lock_guard<std::mutex> lk(helloMu_);
                 helloSeen_.erase(state->getId());
                 if (activeId_ == state->getId())
+                {
                     activeId_.clear();
+                }
                 wasRejected = rejected_.erase(state->getId()) > 0;
             }
             // Suppress onClientGone for a connection we ourselves closed
             // for being a second client: the real (active) client hasn't
             // gone anywhere, so Pipeline must not see this as a disconnect.
             if (!wasRejected && cb_.onClientGone)
+            {
                 cb_.onClientGone();
+            }
         }
         else if (msg->type == ix::WebSocketMessageType::Message)
         {
@@ -81,12 +85,16 @@ bool WsServer::start(std::string& error)
                         return;
                     }
                     if (cb_.onHello)
+                    {
                         cb_.onHello(*hello);
+                    }
                 }
                 else if (isBye(msg->str))
                 {
                     if (cb_.onClientGone)
+                    {
                         cb_.onClientGone();
+                    }
                 }
                 return;
             }
@@ -97,11 +105,15 @@ bool WsServer::start(std::string& error)
                 ok = it != helloSeen_.end() && it->second;
             }
             if (!ok)
+            {
                 return;  // audio before hello: dropped
+            }
             auto frame = parseBinaryFrame(reinterpret_cast<const uint8_t*>(msg->str.data()),
                                           msg->str.size());
             if (frame && cb_.onAudio)
+            {
                 cb_.onAudio(std::move(*frame));
+            }
         }
     });
     auto res = server_->listen();
@@ -128,9 +140,13 @@ void WsServer::stop()
 void WsServer::broadcast(const std::string& textJson)
 {
     if (!server_)
+    {
         return;
+    }
     for (auto&& client : server_->getClients())
+    {
         client->sendText(textJson);
+    }
 }
 
 }  // namespace dsp

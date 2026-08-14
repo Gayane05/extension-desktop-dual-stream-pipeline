@@ -16,7 +16,9 @@ void TranscriptModel::apply(const TranscriptEvent& ev)
     }
     pending.reset();
     if (ev.text.empty())
+    {
         return;
+    }
     Utterance u{ev.stream, ev.text, true, ev.tsMs};
     auto it = std::upper_bound(finals_.begin(), finals_.end(), u.tsMs,
                                [](double ts, const Utterance& x) { return ts < x.tsMs; });
@@ -28,8 +30,12 @@ std::vector<Utterance> TranscriptModel::snapshot() const
     std::lock_guard lk(mu_);
     std::vector<Utterance> out = finals_;
     for (const auto& p : pending_)
+    {
         if (p && !p->text.empty())
+        {
             out.push_back(*p);
+        }
+    }
     return out;
 }
 

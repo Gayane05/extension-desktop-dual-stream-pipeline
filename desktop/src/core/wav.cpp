@@ -32,7 +32,9 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
         f.read(id, 4);
         f.read(reinterpret_cast<char*>(&size), 4);
         if (!f)
+        {
             break;
+        }
         if (std::strncmp(id, "fmt ", 4) == 0)
         {
             // A canonical fmt chunk is 16 bytes (bits-per-sample sits at
