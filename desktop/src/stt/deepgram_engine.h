@@ -15,11 +15,15 @@ namespace dsp
 {
 
 // Parses one Deepgram streaming "Results" message into a TranscriptEvent
-// (or nullopt for message types/shapes we don't care about). Free function
-// (not a method) so it's unit-testable without spinning up a real WS
-// connection -- see desktop/tests/test_deepgram_parse.cpp.
+// (or nullopt for message types/shapes we don't care about). The event's
+// tsMs is the UTTERANCE START time -- connectionEpochMs plus the result's
+// "start" offset (seconds into the audio stream) -- so that overlapping
+// speech across lanes sorts in the order people began talking, not the
+// order segments happened to finalize. Free function (not a method) so it's
+// unit-testable without spinning up a real WS connection -- see
+// desktop/tests/test_deepgram_parse.cpp.
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std::string& json,
-                                                    double nowMs);
+                                                    double connectionEpochMs);
 
 // Cloud STT via Deepgram's streaming API. Implements ISttEngine; unlike
 // SherpaEngine there is no local model or shared decode state -- each stream
@@ -53,6 +57,12 @@ private:
     EngineOptions opts_;
     TranscriptCallback cb_;
     std::unique_ptr<ix::WebSocket> ws_[kStreamCount];  // One live connection per stream.
+    // Wall-clock ms when each connection opened; Deepgram result "start"
+    // offsets are relative to this. Written on Open and read on Message,
+    // both delivered by the same per-connection ixwebsocket thread, so no
+    // synchronization is needed. Reset on every (re)connect because the
+    // stream's timeline restarts at zero.
+    double connectionEpochMs_[kStreamCount] = {};
 };
 
 }  // namespace dsp

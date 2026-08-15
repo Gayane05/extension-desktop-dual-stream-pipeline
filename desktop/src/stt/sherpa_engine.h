@@ -51,6 +51,11 @@ private:
     // audio above the digital-silence floor. Gates emitted text: beam search
     // hallucinates tokens on pure zeros (muted mic/tab), verified empirically.
     bool voiced_[kStreamCount] = {false, false};
+    // Capture timestamp of the current utterance's first voiced chunk.
+    // Emitted events carry this START time (not the endpoint/finalization
+    // time) so overlapping speech across lanes sorts in the order people
+    // began talking. Negative = no utterance in progress.
+    double utteranceStartTsMs_[kStreamCount] = {-1.0, -1.0};
     std::mutex mu_;  // Serializes decode across the two feeder threads.
 };
 

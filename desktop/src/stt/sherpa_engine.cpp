@@ -8,8 +8,15 @@
 
 #include <sherpa-onnx/c-api/c-api.h>
 
+#include <exception>
 #include <filesystem>
 #include <vector>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -107,8 +114,51 @@ constexpr float kRule1TrailingSilenceSec = 2.4f;
 // ever pausing, so run-on speech still gets split into finals.
 constexpr float kRule3MaxUtteranceSec = 20.0f;
 
+// Verifies a GPU provider's runtime DLLs can actually load BEFORE handing
+// the provider to ONNX Runtime: a missing dependency (e.g. cuDNN not on
+// PATH) makes ORT abort the whole process -- not a catchable error -- so
+// probing here is the only way the cpu fallback in start() can ever engage.
+static bool gpuProviderRuntimeAvailable(const std::string& provider, std::string& error)
+{
+#ifdef _WIN32
+    const char* requiredDlls[2] = {nullptr, nullptr};
+    if (provider == "cuda")
+    {
+        requiredDlls[0] = "onnxruntime_providers_cuda.dll";
+        requiredDlls[1] = "cudnn64_9.dll";
+    }
+    else if (provider == "tensorrt")
+    {
+        requiredDlls[0] = "onnxruntime_providers_tensorrt.dll";
+    }
+    for (const char* dllName : requiredDlls)
+    {
+        if (!dllName)
+        {
+            continue;
+        }
+        HMODULE probe = LoadLibraryA(dllName);
+        if (!probe)
+        {
+            error = std::string(dllName) + " could not be loaded (Win32 error " +
+                    std::to_string(GetLastError()) +
+                    ") -- is the CUDA/cuDNN runtime installed and on PATH? (provider=" + provider +
+                    ")";
+            return false;
+        }
+        // Keep the module loaded: ORT will need it immediately anyway, and
+        // holding the reference avoids a pointless unload/reload cycle.
+    }
+#endif
+    return true;
+}
+
 bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error)
 {
+    if (provider != "cpu" && !gpuProviderRuntimeAvailable(provider, error))
+    {
+        return false;
+    }
     const ModelFiles files = findModelFiles(opts_.modelDir);
     if (!files.complete())
     {
@@ -141,7 +191,27 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     recognizerConfig.rule1_min_trailing_silence = kRule1TrailingSilenceSec;
     recognizerConfig.rule2_min_trailing_silence = static_cast<float>(opts_.endpointSilenceSec);
     recognizerConfig.rule3_min_utterance_length = kRule3MaxUtteranceSec;
-    rec_ = SherpaOnnxCreateOnlineRecognizer(&recognizerConfig);
+    // ONNX Runtime provider initialization can throw C++ exceptions straight
+    // through the sherpa C API (observed: the CUDA provider when cuDNN is not
+    // on PATH). Left uncaught they reach std::terminate and kill the process
+    // before start()'s cpu fallback can engage, so convert them into a clean
+    // failure here.
+    try
+    {
+        rec_ = SherpaOnnxCreateOnlineRecognizer(&recognizerConfig);
+    }
+    catch (const std::exception& ex)
+    {
+        rec_ = nullptr;
+        error = "recognizer creation failed (provider=" + provider + "): " + ex.what();
+        return false;
+    }
+    catch (...)
+    {
+        rec_ = nullptr;
+        error = "recognizer creation failed with an unknown error (provider=" + provider + ")";
+        return false;
+    }
     if (!rec_)
     {
         error = "failed to create recognizer (provider=" + provider + ")";
@@ -163,6 +233,10 @@ bool SherpaEngine::start(std::string& error)
     {
         if (opts_.provider != "cpu")
         {
+            // Make the downgrade visible: the status bar only shows the
+            // effective provider, not WHY the requested one failed.
+            std::fprintf(stderr, "sherpa: provider '%s' unavailable (%s); falling back to cpu\n",
+                         opts_.provider.c_str(), error.c_str());
             std::string cpuErr;
             if (createRecognizer("cpu", cpuErr))
             {
@@ -212,6 +286,12 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
     std::lock_guard lock(mu_);
     if (peak > kVoiceThreshold)
     {
+        // First voiced chunk marks the utterance's start; emitted events
+        // carry this timestamp (see utteranceStartTsMs_ in the header).
+        if (!voiced_[idx])
+        {
+            utteranceStartTsMs_[idx] = tsMs;
+        }
         voiced_[idx] = true;
     }
     if (!rec_ || !streams_[idx])
@@ -231,6 +311,11 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
     std::string text = (recognizerResult && recognizerResult->text) ? recognizerResult->text : "";
     SherpaOnnxDestroyOnlineRecognizerResult(recognizerResult);
 
+    // Events are stamped with the utterance's START (first voiced chunk),
+    // not the current chunk's time, so overlapping speech across lanes sorts
+    // by who began talking first.
+    const double utteranceTsMs = utteranceStartTsMs_[idx] >= 0.0 ? utteranceStartTsMs_[idx] : tsMs;
+
     // NOTE: cb_ runs while holding mu_ -- it must not call back into this
     // engine (TranscriptModel::apply only takes its own unrelated lock, so
     // this is safe today, but a future callback must not call feed()/stop()).
@@ -238,18 +323,19 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
     {
         if (!text.empty() && voiced_[idx])
         {
-            cb_({streamId, text, true, tsMs});
+            cb_({streamId, text, true, utteranceTsMs});
         }
         SherpaOnnxOnlineStreamReset(rec_, stream);
         lastInterim_[idx].clear();
         voiced_[idx] = false;  // Next utterance must re-prove it has signal.
+        utteranceStartTsMs_[idx] = -1.0;
     }
     else if (text != lastInterim_[idx])
     {
         lastInterim_[idx] = text;
         if (!text.empty() && voiced_[idx])
         {
-            cb_({streamId, text, false, tsMs});
+            cb_({streamId, text, false, utteranceTsMs});
         }
     }
 }

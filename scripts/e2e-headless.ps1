@@ -13,7 +13,7 @@ if (-not (Test-Path (Join-Path $exeDir "transcriber.exe"))) {
 $samples = "$PSScriptRoot\..\desktop\samples"
 $out = Join-Path $env:TEMP "e2e-transcript.jsonl"
 $proc = Start-Process -FilePath (Join-Path $exeDir "transcriber.exe") `
-    -ArgumentList "--headless", "--duration", "40", "--engine", $Engine, "--model-dir", "$PSScriptRoot\..\desktop\models" `
+    -ArgumentList "--headless", "--duration", "40", "--engine", $Engine, "--provider", "cpu", "--model-dir", "$PSScriptRoot\..\desktop\models" `
     -RedirectStandardOutput $out -RedirectStandardError (Join-Path $env:TEMP "e2e-stderr.log") `
     -PassThru -NoNewWindow
 try {

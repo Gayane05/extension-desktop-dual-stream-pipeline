@@ -1,7 +1,9 @@
 // desktop/tests/test_deepgram_parse.cpp
 //
 // Unit tests for parseDeepgramMessage (stt/deepgram_engine.h): interim vs
-// final "Results" JSON, and rejection of unrelated/malformed messages.
+// final "Results" JSON, utterance-start timestamping (connection epoch plus
+// the result's "start" offset), and rejection of unrelated/malformed
+// messages.
 #include <gtest/gtest.h>
 
 #include "stt/deepgram_engine.h"
@@ -20,12 +22,25 @@ static const char* kMeta = R"({"type":"Metadata","request_id":"x"})";
 
 TEST(DeepgramParse, Interim)
 {
+    // "start" is 0.0 here, so the event timestamp equals the epoch.
     auto ev = parseDeepgramMessage(StreamId::Tab, kInterim, 5000.0);
     ASSERT_TRUE(ev);
     EXPECT_EQ(ev->stream, StreamId::Tab);
     EXPECT_EQ(ev->text, "hello wor");
     EXPECT_FALSE(ev->isFinal);
     EXPECT_DOUBLE_EQ(ev->tsMs, 5000.0);
+}
+
+TEST(DeepgramParse, TimestampIsEpochPlusUtteranceStart)
+{
+    static const char* kLaterUtterance = R"({
+      "type":"Results","channel_index":[0,1],"duration":1.0,"start":2.5,"is_final":true,
+      "channel":{"alternatives":[{"transcript":"later words","confidence":0.9,"words":[]}]}
+    })";
+    auto ev = parseDeepgramMessage(StreamId::Mic, kLaterUtterance, 1000000.0);
+    ASSERT_TRUE(ev);
+    // 2.5 s into the stream on top of the connection epoch.
+    EXPECT_DOUBLE_EQ(ev->tsMs, 1002500.0);
 }
 
 TEST(DeepgramParse, Final)

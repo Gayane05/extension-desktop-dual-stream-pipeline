@@ -17,8 +17,11 @@
 namespace dsp
 {
 
+// Milliseconds per second, for converting Deepgram's "start" offset.
+constexpr double kMsPerSecond = 1000.0;
+
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std::string& json,
-                                                    double nowMs)
+                                                    double connectionEpochMs)
 {
     rapidjson::Document jsonDoc;
     jsonDoc.Parse(json.c_str());
@@ -53,7 +56,14 @@ std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std
     }
     bool isFinal = jsonDoc.HasMember("is_final") && jsonDoc["is_final"].IsBool() &&
                    jsonDoc["is_final"].GetBool();
-    return TranscriptEvent{streamId, text, isFinal, nowMs};
+    // Stamp the event with the utterance's START so overlapping speech across
+    // lanes sorts by who began talking first (see header comment).
+    double tsMs = connectionEpochMs;
+    if (jsonDoc.HasMember("start") && jsonDoc["start"].IsNumber())
+    {
+        tsMs += jsonDoc["start"].GetDouble() * kMsPerSecond;
+    }
+    return TranscriptEvent{streamId, text, isFinal, tsMs};
 }
 
 static double nowMs()
@@ -98,10 +108,13 @@ bool DeepgramEngine::start(std::string& error)
         headers["Authorization"] = "Token " + opts_.deepgramKey;
         ws_[i]->setExtraHeaders(headers);
         ws_[i]->enableAutomaticReconnection();  // Per-stream reconnect w/ backoff.
-        ws_[i]->setOnMessageCallback([this, streamId](const ix::WebSocketMessagePtr& msg) {
+        const int streamIndex = i;
+        ws_[i]->setOnMessageCallback([this, streamId,
+                                      streamIndex](const ix::WebSocketMessagePtr& msg) {
             if (msg->type == ix::WebSocketMessageType::Message && !msg->binary)
             {
-                if (auto transcriptEvent = parseDeepgramMessage(streamId, msg->str, nowMs()))
+                if (auto transcriptEvent = parseDeepgramMessage(
+                        streamId, msg->str, connectionEpochMs_[streamIndex]))
                 {
                     cb_(*transcriptEvent);
                 }
@@ -116,6 +129,9 @@ bool DeepgramEngine::start(std::string& error)
             }
             else if (msg->type == ix::WebSocketMessageType::Open)
             {
+                // The stream's "start" offsets count from (re)connection;
+                // anchor them to wall-clock here.
+                connectionEpochMs_[streamIndex] = nowMs();
                 std::fprintf(stderr, "deepgram[%s] connected\n", streamName(streamId));
             }
             else if (msg->type == ix::WebSocketMessageType::Close)
