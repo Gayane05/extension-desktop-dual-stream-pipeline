@@ -150,25 +150,29 @@ void applyThemeAndFont()
     style.ScrollbarRounding = 5.0f;
     style.ItemSpacing = ImVec2(10.0f, 8.0f);
     style.WindowPadding = ImVec2(14.0f, 12.0f);
-    // Cohesive dark-slate palette with indigo controls, replacing the stock
-    // grey theme. Transcript lane colors (blue/orange) live in runUi().
+    // Dusk palette chosen by the user: navy #355070, plum #6d597a, rose
+    // #b56576, coral #e56b6f (plus the family's sand #eaac8b for warnings).
+    // Role mapping: navy family carries surfaces and input frames, plum
+    // carries buttons, rose is the pressed state, and coral is the single
+    // bright accent (checkmarks, active highlights). Transcript lane colors
+    // live in runUi(): You = light navy, Others = coral.
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
-    colors[ImGuiCol_ChildBg] = ImVec4(0.105f, 0.115f, 0.145f, 1.00f);
-    colors[ImGuiCol_Text] = ImVec4(0.92f, 0.93f, 0.95f, 1.00f);
-    colors[ImGuiCol_Border] = ImVec4(0.25f, 0.27f, 0.35f, 0.50f);
-    colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.23f, 0.34f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.26f, 0.30f, 0.44f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.31f, 0.36f, 0.53f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.27f, 0.32f, 0.52f, 1.00f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.34f, 0.40f, 0.65f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.42f, 0.49f, 0.78f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.62f, 0.72f, 1.00f, 1.00f);
-    colors[ImGuiCol_Separator] = ImVec4(0.25f, 0.27f, 0.35f, 0.60f);
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.085f, 0.095f, 0.120f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.28f, 0.31f, 0.42f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.36f, 0.40f, 0.55f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.44f, 0.50f, 0.70f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.075f, 0.102f, 0.149f, 1.00f);   // Darkened navy.
+    colors[ImGuiCol_ChildBg] = ImVec4(0.106f, 0.145f, 0.212f, 1.00f);    // Navy panel.
+    colors[ImGuiCol_Text] = ImVec4(0.941f, 0.933f, 0.949f, 1.00f);
+    colors[ImGuiCol_Border] = ImVec4(0.427f, 0.349f, 0.478f, 0.45f);     // Plum, translucent.
+    colors[ImGuiCol_FrameBg] = ImVec4(0.165f, 0.251f, 0.353f, 1.00f);    // Muted navy.
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.208f, 0.314f, 0.439f, 1.00f);  // #355070.
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.247f, 0.376f, 0.541f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.427f, 0.349f, 0.478f, 1.00f);        // #6d597a.
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.502f, 0.412f, 0.565f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.710f, 0.396f, 0.463f, 1.00f);  // #b56576.
+    colors[ImGuiCol_CheckMark] = ImVec4(0.898f, 0.420f, 0.435f, 1.00f);     // #e56b6f.
+    colors[ImGuiCol_Separator] = ImVec4(0.427f, 0.349f, 0.478f, 0.55f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.075f, 0.102f, 0.149f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.243f, 0.278f, 0.396f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.427f, 0.349f, 0.478f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.710f, 0.396f, 0.463f, 1.00f);
     // Replace ImGui's 13px bitmap default with a larger, softer system font.
     // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
     // neither loads (non-standard Windows install), scale the bitmap default
@@ -263,9 +267,11 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);   // Blue - You.
-    const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);   // Orange - Others.
-    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);  // Slate-tinted secondary text.
+    // Lane colors are the palette's cool and warm poles: You speaks in light
+    // navy (derived from #355070), Others in coral #e56b6f.
+    const ImVec4 micColor(0.561f, 0.706f, 0.863f, 1.0f);  // Light navy - You.
+    const ImVec4 tabColor(0.898f, 0.420f, 0.435f, 1.0f);  // Coral - Others.
+    const ImVec4 dimColor(0.616f, 0.576f, 0.659f, 1.0f);  // Plum-grey secondary text.
     const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
     bool autoscroll = true;
     std::string saveStatus;        // Empty when nothing to report.
@@ -399,7 +405,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // Match WindowBg.
+        const float clear[4] = {0.075f, 0.102f, 0.149f, 1.0f};  // Match WindowBg.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -445,8 +451,8 @@ bool runSetupUi(Config& cfg)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);
-    const ImVec4 warnColor(1.0f, 0.75f, 0.35f, 1.0f);
+    const ImVec4 dimColor(0.616f, 0.576f, 0.659f, 1.0f);  // Plum-grey secondary text.
+    const ImVec4 warnColor(0.918f, 0.675f, 0.545f, 1.0f);  // Sand #eaac8b - warnings.
     // API key entry for Deepgram. Pre-filled from a previously saved key so
     // the field doubles as "view/replace" on later Settings visits. Kept
     // masked by default; the checkbox reveals it for verifying a paste.
@@ -547,7 +553,7 @@ bool runSetupUi(Config& cfg)
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // Match WindowBg.
+        const float clear[4] = {0.075f, 0.102f, 0.149f, 1.0f};  // Match WindowBg.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
