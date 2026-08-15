@@ -14,6 +14,8 @@
 #include <cstdio>
 #include <string_view>
 
+#include "core/secret_store.h"
+
 namespace dsp
 {
 
@@ -210,7 +212,20 @@ bool loadSettingsFile(const std::string& path, Config& into)
             into.provider = value;
         }
     }
-    if (jsonDoc.HasMember("deepgramKey") && jsonDoc["deepgramKey"].IsString())
+    // The key is stored DPAPI-protected (see core/secret_store.h). A blob
+    // that fails to unprotect (different user, re-imaged machine, corruption)
+    // is treated as "no key stored" -- the user simply re-enters it.
+    if (jsonDoc.HasMember("deepgramKeyProtected") && jsonDoc["deepgramKeyProtected"].IsString())
+    {
+        if (auto plainKey = unprotectSecret(jsonDoc["deepgramKeyProtected"].GetString()))
+        {
+            into.deepgramKey = *plainKey;
+        }
+    }
+    // Legacy migration: settings written before encryption-at-rest stored the
+    // key in plaintext. Honor it on load; the next save rewrites the file
+    // with the protected form only.
+    else if (jsonDoc.HasMember("deepgramKey") && jsonDoc["deepgramKey"].IsString())
     {
         into.deepgramKey = jsonDoc["deepgramKey"].GetString();
     }
@@ -228,8 +243,18 @@ bool saveSettingsFile(const std::string& path, const Config& cfg)
     jsonWriter.String(cfg.provider.c_str());
     if (!cfg.deepgramKey.empty())
     {
-        jsonWriter.Key("deepgramKey");
-        jsonWriter.String(cfg.deepgramKey.c_str());
+        // Never write the key in plaintext. If protection fails (it should
+        // not on a healthy Windows), the key is simply omitted -- losing
+        // persistence is safer than persisting it readable.
+        if (auto protectedBlob = protectSecret(cfg.deepgramKey))
+        {
+            jsonWriter.Key("deepgramKeyProtected");
+            jsonWriter.String(protectedBlob->c_str());
+        }
+        else
+        {
+            std::fprintf(stderr, "warning: could not protect the API key; not persisting it\n");
+        }
     }
     jsonWriter.EndObject();
 

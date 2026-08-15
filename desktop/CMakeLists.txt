@@ -89,6 +89,8 @@ target_sources(dsp_core PRIVATE
     src/core/version.cpp
     src/core/protocol.h
     src/core/protocol.cpp
+    src/core/secret_store.h
+    src/core/secret_store.cpp
     src/core/wav.h
     src/core/wav.cpp
     src/app/pipeline.h
@@ -109,7 +111,9 @@ target_sources(dsp_core PRIVATE
 )
 set_target_properties(dsp_core PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(dsp_core PUBLIC src)
-target_link_libraries(dsp_core PUBLIC rapidjson ixwebsocket::ixwebsocket sherpa-onnx::sherpa-onnx)
+# crypt32 provides DPAPI (CryptProtectData) and base64 for core/secret_store.
+target_link_libraries(dsp_core PUBLIC rapidjson ixwebsocket::ixwebsocket sherpa-onnx::sherpa-onnx
+                                      crypt32)
 
 enable_testing()
 add_executable(dsp_tests
@@ -124,6 +128,7 @@ add_executable(dsp_tests
     tests/test_deepgram_parse.cpp
     tests/test_wav.cpp
     tests/test_save_transcript.cpp
+    tests/test_secret_store.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 dsp_copy_runtime_dlls(dsp_tests)

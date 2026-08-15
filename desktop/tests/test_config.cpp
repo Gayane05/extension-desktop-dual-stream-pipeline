@@ -45,6 +45,24 @@ TEST(Config, SettingsFileRoundTrip)
     EXPECT_EQ(in.engine, "deepgram");
     EXPECT_EQ(in.provider, "cuda");
     EXPECT_EQ(in.deepgramKey, "abc123testkey");
+    // The key must be stored DPAPI-protected: the file on disk must never
+    // contain the plaintext key.
+    std::ifstream savedFile(path);
+    const std::string savedText((std::istreambuf_iterator<char>(savedFile)),
+                                std::istreambuf_iterator<char>());
+    EXPECT_EQ(savedText.find("abc123testkey"), std::string::npos);
+    EXPECT_NE(savedText.find("deepgramKeyProtected"), std::string::npos);
+}
+
+TEST(Config, SettingsFileLegacyPlaintextKeyMigrates)
+{
+    // Settings written before encryption-at-rest stored the key in plaintext;
+    // loading must still honor it (the next save upgrades the file).
+    const std::string path = std::string(::testing::TempDir()) + "settings-legacy.json";
+    std::ofstream(path) << R"({"engine":"deepgram","provider":"cpu","deepgramKey":"legacykey"})";
+    Config in;
+    ASSERT_TRUE(loadSettingsFile(path, in));
+    EXPECT_EQ(in.deepgramKey, "legacykey");
 }
 
 TEST(Config, SettingsFileMissingLeavesDefaults)
