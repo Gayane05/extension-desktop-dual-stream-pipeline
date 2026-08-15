@@ -8,7 +8,8 @@
 typedef struct SherpaOnnxOnlineRecognizer SherpaOnnxOnlineRecognizer;
 typedef struct SherpaOnnxOnlineStream SherpaOnnxOnlineStream;
 
-namespace dsp {
+namespace dsp
+{
 
 // Local, on-device STT via sherpa-onnx's streaming zipformer transducer.
 // Implements ISttEngine; owns one recognizer shared by both streams (Mic and
@@ -24,7 +25,8 @@ namespace dsp {
 // calls stop(), so the same rule applies to destruction. start() itself also
 // takes the mutex (see sherpa_engine.cpp), so the class is self-defending
 // even if that lifecycle contract is ever violated.
-class SherpaEngine : public ISttEngine {
+class SherpaEngine : public ISttEngine
+{
 public:
     SherpaEngine(EngineOptions opts, TranscriptCallback cb);
     ~SherpaEngine() override;
@@ -43,13 +45,13 @@ private:
     TranscriptCallback cb_;
     std::string effectiveProvider_;
     const SherpaOnnxOnlineRecognizer* rec_ = nullptr;
-    const SherpaOnnxOnlineStream* streams_[2] = {nullptr, nullptr};
-    std::string lastInterim_[2];
+    const SherpaOnnxOnlineStream* streams_[kStreamCount] = {nullptr, nullptr};
+    std::string lastInterim_[kStreamCount];
     // True once the current utterance (since the last endpoint reset) has seen
     // audio above the digital-silence floor. Gates emitted text: beam search
     // hallucinates tokens on pure zeros (muted mic/tab), verified empirically.
-    bool voiced_[2] = {false, false};
-    std::mutex mu_;  // serializes decode across the two feeder threads
+    bool voiced_[kStreamCount] = {false, false};
+    std::mutex mu_;  // Serializes decode across the two feeder threads.
 };
 
 }  // namespace dsp

@@ -17,9 +17,14 @@
 #include "net/ws_server.h"
 #include "stt/stt_engine.h"
 
-namespace dsp {
+namespace dsp
+{
 
-class Pipeline {
+// SpscRing capacity, in AudioFrame chunks, for each per-stream ring buffer.
+inline constexpr size_t kRingCapacityChunks = 256;
+
+class Pipeline
+{
 public:
     Pipeline(const Config& cfg, ISttEngine& engine);
     ~Pipeline();
@@ -57,16 +62,17 @@ private:
 
     Config cfg_;
     ISttEngine& engine_;
-    SpscRing<AudioFrame> rings_[2]{SpscRing<AudioFrame>(256), SpscRing<AudioFrame>(256)};
-    std::atomic<uint64_t> dropped_[2]{};
-    std::atomic<int64_t> lastFrameMs_[2]{};
+    SpscRing<AudioFrame> rings_[kStreamCount]{SpscRing<AudioFrame>(kRingCapacityChunks),
+                                              SpscRing<AudioFrame>(kRingCapacityChunks)};
+    std::atomic<uint64_t> dropped_[kStreamCount]{};
+    std::atomic<int64_t> lastFrameMs_[kStreamCount]{};
     std::atomic<bool> connected_{false};
     // Set before server_->stop() in Pipeline::stop() so pushStatus() — called
     // from ix connection threads (onHello/onClientGone) and periodically from
     // the main/UI thread — stops touching server_ before it is reset.
     std::atomic<bool> stopping_{false};
     std::unique_ptr<WsServer> server_;
-    std::thread workers_[2];
+    std::thread workers_[kStreamCount];
 };
 
 }  // namespace dsp

@@ -39,7 +39,7 @@ TEST(TranscriptModel, LanesInterleaveChronologically)
     model.apply({StreamId::Tab, "how are you", true, 200.0});
     model.apply({StreamId::Mic, "fine thanks", true, 300.0});
     model.apply({StreamId::Tab, "good", true, 400.0});
-    model.apply({StreamId::Mic, "typing something", false, 500.0});  // pending shown last
+    model.apply({StreamId::Mic, "typing something", false, 500.0});  // Pending shown last.
     auto entries = model.snapshot();
     ASSERT_EQ(entries.size(), 4u);
     EXPECT_EQ(entries[0].stream, StreamId::Tab);
@@ -68,10 +68,10 @@ TEST(TranscriptModel, EmptyFinalIgnored)
 TEST(TranscriptModel, ToTextFormatsFinalsOnly)
 {
     TranscriptModel model;
-    // 1h 2m 3s = 3723000 ms; 1h 2m 4s = 3724000 ms
+    // 1h 2m 3s = 3723000 ms; 1h 2m 4s = 3724000 ms.
     model.apply({StreamId::Mic, "hello there", true, 3723000.0});
     model.apply({StreamId::Tab, "hi yourself", true, 3724000.0});
-    model.apply({StreamId::Mic, "pending interim", false, 3725000.0});  // must NOT appear
+    model.apply({StreamId::Mic, "pending interim", false, 3725000.0});  // Must NOT appear.
     EXPECT_EQ(model.toText(),
               "[01:02:03] You: hello there\n"
               "[01:02:04] Others: hi yourself\n");
@@ -106,9 +106,9 @@ TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke)
     done = true;
     reader.join();
     auto entries = model.snapshot();
-    EXPECT_EQ(entries.size(), kN / 10 * 2u);  // 500 finals per lane
+    EXPECT_EQ(entries.size(), kN / 10 * 2u);  // 500 finals per lane.
     for (size_t i = 1; i < entries.size(); ++i)
     {
-        EXPECT_LE(entries[i - 1].tsMs, entries[i].tsMs);  // sorted invariant held
+        EXPECT_LE(entries[i - 1].tsMs, entries[i].tsMs);  // Sorted invariant held.
     }
 }

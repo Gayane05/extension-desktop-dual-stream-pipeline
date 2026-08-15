@@ -1,7 +1,7 @@
 # Project C++ style. Mirrors the existing Google-ish layout (4-space indent,
 # 100-column limit, left-aligned pointers) with one deliberate deviation:
-# control-statement braces (if/else/for/while/switch) and function-definition
-# braces open on their own line.
+# control-statement braces (if/else/for/while/switch), function-definition
+# braces, and namespace/struct/class braces all open on their own line.
 BasedOnStyle: Google
 IndentWidth: 4
 ColumnLimit: 100
@@ -14,11 +14,11 @@ BraceWrapping:
   BeforeElse: true
   BeforeCatch: true
   AfterFunction: true
-  AfterClass: false
-  AfterStruct: false
-  AfterNamespace: false
-  AfterEnum: false
-  AfterUnion: false
+  AfterClass: true
+  AfterStruct: true
+  AfterNamespace: true
+  AfterEnum: true
+  AfterUnion: true
   BeforeWhile: false
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false

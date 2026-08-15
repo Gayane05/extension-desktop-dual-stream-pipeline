@@ -27,9 +27,9 @@ TEST(Protocol, RejectsTruncatedAndBadTag)
 {
     std::vector<int16_t> pcm{1};
     auto ok = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
-    EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());   // shorter than header
-    EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());  // odd payload length
-    ok[0] = 7;                                                  // unknown tag
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 8).has_value());   // Shorter than header.
+    EXPECT_FALSE(parseBinaryFrame(ok.data(), 10).has_value());  // Odd payload length.
+    ok[0] = 7;                                                  // Unknown tag.
     EXPECT_FALSE(parseBinaryFrame(ok.data(), ok.size()).has_value());
 }
 
@@ -37,9 +37,9 @@ TEST(Protocol, RejectsNonFiniteCaptureTs)
 {
     std::vector<int16_t> pcm{1, 2, 3};
     auto bytes = serializeBinaryFrame(StreamId::Mic, 1.0, pcm.data(), pcm.size());
-    ASSERT_TRUE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());  // sanity: valid as-is
+    ASSERT_TRUE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());  // Sanity: valid as-is.
     const double nan = std::numeric_limits<double>::quiet_NaN();
-    std::memcpy(bytes.data() + 1, &nan, sizeof(double));  // overwrite captureTsMs bytes [1,9)
+    std::memcpy(bytes.data() + 1, &nan, sizeof(double));  // Overwrite captureTsMs bytes [1,9).
     EXPECT_FALSE(parseBinaryFrame(bytes.data(), bytes.size()).has_value());
 }
 

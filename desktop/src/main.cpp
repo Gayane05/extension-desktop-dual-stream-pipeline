@@ -29,7 +29,8 @@
 #include "stt/deepgram_engine.h"
 #include "stt/sherpa_engine.h"
 
-namespace dsp {
+namespace dsp
+{
 // Both implemented in desktop/src/ui/main_window.cpp. runUi returns
 // kRunUiRestartSetup when the Settings button asks for the mode chooser.
 int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg);
@@ -41,6 +42,15 @@ static void onSignal(int)
 {
     g_stop = true;
 }
+
+// How many parent directories resolveDefaultModelDir() walks up from the exe
+// looking for a "models" dir (build/Release -> build -> desktop).
+constexpr int kModelDirSearchLevels = 2;
+// Headless run-loop tick period.
+constexpr int kHeadlessTickMs = 100;
+// Push a status heartbeat every this-many ticks (~1x/second at
+// kHeadlessTickMs).
+constexpr int kStatusPushEveryTicks = 10;
 
 // Makes the default model path work for double-click launches. The README's
 // documented flow runs the exe from desktop/, where the default "models" dir
@@ -63,7 +73,7 @@ static void resolveDefaultModelDir(dsp::Config& cfg)
         return;
     }
     fs::path dir = fs::path(exePath).parent_path();
-    for (int up = 0; up <= 2; ++up)
+    for (int up = 0; up <= kModelDirSearchLevels; ++up)
     {
         const fs::path candidate = dir / "models";
         if (fs::exists(candidate))
@@ -175,7 +185,7 @@ int main(int argc, char** argv)
         {
             if (!dsp::runSetupUi(*cfg))
             {
-                return 0;  // chooser closed without choosing = quit
+                return 0;  // Chooser closed without choosing = quit.
             }
             if (!dsp::saveSettingsFile(settingsPath, *cfg))
             {
@@ -245,8 +255,8 @@ int main(int argc, char** argv)
             while (!g_stop &&
                    (cfg->durationSec <= 0 || std::chrono::steady_clock::now() < deadline))
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                if (++tick % 10 == 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(kHeadlessTickMs));
+                if (++tick % kStatusPushEveryTicks == 0)
                 {
                     pipeline.pushStatus();
                 }

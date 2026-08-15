@@ -13,14 +13,25 @@
 #include <string>
 #include <vector>
 
-namespace dsp {
-enum class StreamId : uint8_t { Mic = 0, Tab = 1 };
+namespace dsp
+{
+// Number of independent audio lanes (mic + tab) carried by the wire protocol
+// and mirrored throughout the pipeline (rings, worker threads, per-stream
+// engine state).
+inline constexpr int kStreamCount = 2;
+
+enum class StreamId : uint8_t
+{
+    Mic = 0,
+    Tab = 1
+};
 inline const char* streamName(StreamId streamId)
 {
     return streamId == StreamId::Mic ? "mic" : "tab";
 }
 
-struct AudioFrame {
+struct AudioFrame
+{
     StreamId stream;
     double captureTsMs;
     std::vector<int16_t> samples;
@@ -31,11 +42,16 @@ struct AudioFrame {
 // N*2 bytes of PCM16 mono samples at 16 kHz.
 inline constexpr size_t kFrameHeaderSize = 9;
 
+// Wire-contract sample rate (Hz): the extension and desktop app both assume
+// PCM16 mono audio at this rate; there is no negotiation.
+inline constexpr int kSampleRateHz = 16000;
+
 std::optional<AudioFrame> parseBinaryFrame(const uint8_t* data, size_t len);
 std::vector<uint8_t> serializeBinaryFrame(StreamId streamId, double tsMs, const int16_t* samples,
                                           size_t sampleCount);
 
-struct HelloInfo {
+struct HelloInfo
+{
     int version = 0;
     int sampleRate = 0;
     int channels = 0;

@@ -29,7 +29,7 @@ TEST(SpscRing, TryPushFailsWhenFull)
     SpscRing<int> ring(2);
     EXPECT_TRUE(ring.tryPush(1));
     EXPECT_TRUE(ring.tryPush(2));
-    EXPECT_FALSE(ring.tryPush(3));  // full: incoming dropped by caller
+    EXPECT_FALSE(ring.tryPush(3));  // Full: incoming dropped by caller.
 }
 
 TEST(SpscRing, CloseUnblocksConsumerAndDrains)
@@ -37,8 +37,8 @@ TEST(SpscRing, CloseUnblocksConsumerAndDrains)
     SpscRing<int> ring(4);
     ring.tryPush(42);
     ring.close();
-    EXPECT_EQ(ring.popWait().value(), 42);     // drains remaining item
-    EXPECT_FALSE(ring.popWait().has_value());  // then reports closed
+    EXPECT_EQ(ring.popWait().value(), 42);     // Drains remaining item.
+    EXPECT_FALSE(ring.popWait().has_value());  // Then reports closed.
 }
 
 TEST(SpscRing, ThreadedSmoke)
@@ -78,7 +78,7 @@ TEST(SpscRing, CloseWakesBlockedConsumer)
     {
         std::this_thread::yield();
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // let it park
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Let it park.
     ring->close();
     ASSERT_EQ(fut.wait_for(std::chrono::seconds(5)), std::future_status::ready)
         << "close() failed to wake the blocked consumer";

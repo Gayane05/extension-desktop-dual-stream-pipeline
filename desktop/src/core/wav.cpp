@@ -4,7 +4,8 @@
 #include <cstring>
 #include <fstream>
 
-namespace dsp {
+namespace dsp
+{
 
 // RIFF files are a flat sequence of [4-byte id][4-byte size][payload]
 // chunks after the 12-byte "RIFF"+size+"WAVE" header. We only care about
@@ -89,7 +90,7 @@ std::optional<WavData> readWavPcm16Mono(const std::string& path, std::string& er
             // next chunk header always starts on a 2-byte boundary; that pad
             // byte isn't part of `size`, so skip size+1 (not size) to land on
             // the next chunk's id rather than one byte short of it.
-            file.seekg(size + (size % 2), std::ios::cur);  // chunks are word-aligned
+            file.seekg(size + (size % 2), std::ios::cur);  // Chunks are word-aligned.
         }
     }
     error = "no data chunk";

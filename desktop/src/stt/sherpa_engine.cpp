@@ -13,9 +13,11 @@
 
 namespace fs = std::filesystem;
 
-namespace dsp {
+namespace dsp
+{
 
-struct ModelFiles {
+struct ModelFiles
+{
     std::string encoder, decoder, joiner, tokens;
     bool complete() const
     {
@@ -92,6 +94,19 @@ SherpaEngine::~SherpaEngine()
     stop();
 }
 
+// modified_beam_search's max_active_paths: number of decode hypotheses kept
+// per step. 4 balances accuracy against decode cost.
+constexpr int32_t kBeamActivePaths = 4;
+// Zipformer feature extractor's Mel-filterbank dimension, fixed by the model.
+constexpr int32_t kFeatureDim = 80;
+// Endpoint rule1: finalize after this much trailing silence with no speech at
+// all (a much longer fuse than rule2's --endpoint-silence, which fires after
+// speech has already been heard).
+constexpr float kRule1TrailingSilenceSec = 2.4f;
+// Endpoint rule3: force-finalize an utterance that has run this long without
+// ever pausing, so run-on speech still gets split into finals.
+constexpr float kRule3MaxUtteranceSec = 20.0f;
+
 bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error)
 {
     const ModelFiles files = findModelFiles(opts_.modelDir);
@@ -114,18 +129,18 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     recognizerConfig.decoding_method = beam ? "modified_beam_search" : "greedy_search";
     if (beam)
     {
-        recognizerConfig.max_active_paths = 4;
+        recognizerConfig.max_active_paths = kBeamActivePaths;
     }
-    recognizerConfig.feat_config.sample_rate = 16000;
-    recognizerConfig.feat_config.feature_dim = 80;
+    recognizerConfig.feat_config.sample_rate = kSampleRateHz;
+    recognizerConfig.feat_config.feature_dim = kFeatureDim;
     // Endpointing controls how utterances split into finals: rule2 fires
     // after a pause following speech (the sentence-splitting knob, exposed
     // as --endpoint-silence), rule1 after long silence with no speech, and
     // rule3 force-finalizes run-on speech that never pauses.
     recognizerConfig.enable_endpoint = 1;
-    recognizerConfig.rule1_min_trailing_silence = 2.4f;
+    recognizerConfig.rule1_min_trailing_silence = kRule1TrailingSilenceSec;
     recognizerConfig.rule2_min_trailing_silence = static_cast<float>(opts_.endpointSilenceSec);
-    recognizerConfig.rule3_min_utterance_length = 20.0f;
+    recognizerConfig.rule3_min_utterance_length = kRule3MaxUtteranceSec;
     rec_ = SherpaOnnxCreateOnlineRecognizer(&recognizerConfig);
     if (!rec_)
     {
@@ -151,7 +166,7 @@ bool SherpaEngine::start(std::string& error)
             std::string cpuErr;
             if (createRecognizer("cpu", cpuErr))
             {
-                error.clear();  // succeeded on fallback; effectiveProvider_ says "cpu"
+                error.clear();  // Succeeded on fallback; effectiveProvider_ says "cpu".
             }
             else
             {
@@ -171,6 +186,9 @@ bool SherpaEngine::start(std::string& error)
 
 void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sampleCount, double tsMs)
 {
+    // Divisor converting signed PCM16 samples to the [-1, 1) float range
+    // sherpa-onnx's feature extractor expects.
+    constexpr float kPcmScale = 32768.0f;
     const int idx = static_cast<int>(streamId);
     int peak = 0;
     std::vector<float> floatSamples(sampleCount);
@@ -185,7 +203,7 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
         {
             peak = sampleValue;
         }
-        floatSamples[i] = samples[i] / 32768.0f;
+        floatSamples[i] = samples[i] / kPcmScale;
     }
     // ~0.3% of full scale: anything below is digital silence (muted source),
     // far under any real mic/tab noise floor. See voiced_ in the header.
@@ -201,7 +219,7 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
         return;
     }
     auto* stream = streams_[idx];
-    SherpaOnnxOnlineStreamAcceptWaveform(stream, 16000, floatSamples.data(),
+    SherpaOnnxOnlineStreamAcceptWaveform(stream, kSampleRateHz, floatSamples.data(),
                                          static_cast<int32_t>(sampleCount));
     while (SherpaOnnxIsOnlineStreamReady(rec_, stream))
     {
@@ -224,7 +242,7 @@ void SherpaEngine::feed(StreamId streamId, const int16_t* samples, size_t sample
         }
         SherpaOnnxOnlineStreamReset(rec_, stream);
         lastInterim_[idx].clear();
-        voiced_[idx] = false;  // next utterance must re-prove it has signal
+        voiced_[idx] = false;  // Next utterance must re-prove it has signal.
     }
     else if (text != lastInterim_[idx])
     {

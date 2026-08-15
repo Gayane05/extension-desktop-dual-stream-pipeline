@@ -12,12 +12,18 @@
 #include <semaphore>
 #include <vector>
 
-namespace dsp {
+namespace dsp
+{
+
+// Extra semaphore permits close() releases beyond the one the blocked
+// consumer needs; see close() below.
+inline constexpr int kCloseWakeupCredits = 64;
 
 // Single-producer / single-consumer bounded ring. tryPush never blocks;
 // popWait blocks on a semaphore (no busy-wait). Data path is lock-free.
 template <typename T>
-class SpscRing {
+class SpscRing
+{
 public:
     // +1 slot: with N usable slots stored in an N+1-capacity buffer, "full"
     // (next == tail) and "empty" (tail == head) are distinguishable purely
@@ -35,7 +41,7 @@ public:
         // that slot without racing the consumer's in-progress move-out.
         if (next == tail_.load(std::memory_order_acquire))
         {
-            return false;  // full
+            return false;  // Full.
         }
         buf_[head] = std::move(value);
         // release pairs with tryPop's acquire load of head_: publishes both
@@ -67,11 +73,11 @@ public:
     void close()
     {
         closed_.store(true, std::memory_order_release);
-        // Over-release semaphore with headroom (64 is arbitrary); one credit suffices for
-        // the single consumer, but extra permits are harmless because tryPop validates
-        // against real head/tail state. Ensures blocked consumer wakes even if spurious
-        // wakeups are possible.
-        sem_.release(64);
+        // Over-release semaphore with headroom (kCloseWakeupCredits is arbitrary); one
+        // credit suffices for the single consumer, but extra permits are harmless because
+        // tryPop validates against real head/tail state. Ensures blocked consumer wakes
+        // even if spurious wakeups are possible.
+        sem_.release(kCloseWakeupCredits);
     }
 
     bool closed() const { return closed_.load(std::memory_order_acquire); }

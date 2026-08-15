@@ -16,7 +16,7 @@ using namespace dsp;
 
 static std::string modelDir()
 {
-    // tests run from build tree; models live in <repo>/desktop/models
+    // Tests run from build tree; models live in <repo>/desktop/models.
     for (auto path :
          {"models", "../models", "../../models", "../../../models", "../../../../models"})
     {
@@ -53,7 +53,7 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
     std::string err;
     ASSERT_TRUE(eng.start(err)) << err;
     std::vector<int16_t> silence(1600, 0);
-    for (int i = 0; i < 20; ++i)  // 2 s of silence
+    for (int i = 0; i < 20; ++i)  // 2 s of silence.
     {
         eng.feed(StreamId::Mic, silence.data(), silence.size(), i * 100.0);
     }
@@ -61,6 +61,6 @@ TEST(SherpaEngine, TranscribesToneOfSilenceWithoutEvents)
     std::lock_guard lk(eventsMutex);
     for (auto& event : events)
     {
-        EXPECT_TRUE(event.text.empty() || !event.isFinal);  // no phantom finals
+        EXPECT_TRUE(event.text.empty() || !event.isFinal);  // No phantom finals.
     }
 }

@@ -18,15 +18,19 @@
 
 #include "core/protocol.h"
 
-namespace ix {
+namespace ix
+{
 class WebSocketServer;
 }
 
-namespace dsp {
+namespace dsp
+{
 
-class WsServer {
+class WsServer
+{
 public:
-    struct Callbacks {
+    struct Callbacks
+    {
         std::function<void(AudioFrame&&)> onAudio;
         std::function<void(const HelloInfo&)> onHello;
         std::function<void()> onClientGone;
@@ -51,10 +55,10 @@ private:
     // rather than being allowed to feed audio alongside the first.
     std::mutex helloMu_;
     std::map<std::string, bool> helloSeen_;
-    std::string activeId_;            // id of the currently accepted client; empty if none
-    std::set<std::string> rejected_;  // ids closed by us for "already connected"; suppresses
+    std::string activeId_;            // Id of the currently accepted client; empty if none.
+    std::set<std::string> rejected_;  // Ids closed by us for "already connected"; suppresses
                                       // their Close event from firing onClientGone (it isn't
-                                      // the active client going away)
+                                      // the active client going away).
 };
 
 }  // namespace dsp

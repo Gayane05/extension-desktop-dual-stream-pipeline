@@ -35,7 +35,7 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "mic wav: %s\n", err.c_str());
         return 2;
     }
-    else if (mic->sampleRate != 16000)
+    else if (mic->sampleRate != kSampleRateHz)
     {
         std::fprintf(stderr, "mic wav: expected 16000 Hz, got %d\n", mic->sampleRate);
         return 2;
@@ -46,7 +46,7 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "tab wav: %s\n", err.c_str());
         return 2;
     }
-    else if (tab->sampleRate != 16000)
+    else if (tab->sampleRate != kSampleRateHz)
     {
         std::fprintf(stderr, "tab wav: expected 16000 Hz, got %d\n", tab->sampleRate);
         return 2;
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     ws.sendText(
         R"({"type":"hello","version":1,"sampleRate":16000,"channels":1,"format":"s16le","streams":["mic","tab"]})");
 
-    constexpr size_t kChunk = 1600;  // 100 ms
+    constexpr size_t kChunkSamples = 1600;  // 100 ms.
     const size_t maxLen = std::max(mic->samples.size(), tab->samples.size());
     auto startTime = steady_clock::now();
     // Pace chunks against absolute deadlines (startTime + N*100ms) rather than
@@ -91,7 +91,7 @@ int main(int argc, char** argv)
     // measurably slower than real time. Anchoring every deadline to startTime
     // instead keeps long-run average pacing accurate, matching how the
     // extension feeds audio in real time.
-    for (size_t off = 0; off < maxLen; off += kChunk)
+    for (size_t off = 0; off < maxLen; off += kChunkSamples)
     {
         double tsMs = duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();
         auto sendChunk = [&](StreamId id, const std::vector<int16_t>& pcm) {
@@ -99,20 +99,20 @@ int main(int argc, char** argv)
             {
                 return;
             }
-            size_t sampleCount = std::min(kChunk, pcm.size() - off);
+            size_t sampleCount = std::min(kChunkSamples, pcm.size() - off);
             auto frame = serializeBinaryFrame(id, tsMs, pcm.data() + off, sampleCount);
             ws.sendBinary(std::string(reinterpret_cast<char*>(frame.data()), frame.size()));
         };
         sendChunk(StreamId::Mic, mic->samples);
         sendChunk(StreamId::Tab, tab->samples);
-        std::this_thread::sleep_until(startTime + milliseconds(100) * (off / kChunk + 1));
+        std::this_thread::sleep_until(startTime + milliseconds(100) * (off / kChunkSamples + 1));
     }
     // sherpa's endpoint rules (see sherpa_engine.cpp) finalize an utterance
     // only after observing a trailing silence gap, so without feeding a few
     // seconds of silence after the real audio ends, the last utterance in
     // the WAV would stay "pending" (interim) forever with no final emitted.
-    // trailing silence so endpointing fires finals
-    std::vector<int16_t> silence(kChunk, 0);
+    // Trailing silence so endpointing fires finals.
+    std::vector<int16_t> silence(kChunkSamples, 0);
     for (int i = 0; i < 30; ++i)
     {
         double tsMs = duration<double, std::milli>(steady_clock::now().time_since_epoch()).count();

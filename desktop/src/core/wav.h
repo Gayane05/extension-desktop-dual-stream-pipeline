@@ -8,8 +8,10 @@
 #include <string>
 #include <vector>
 
-namespace dsp {
-struct WavData {
+namespace dsp
+{
+struct WavData
+{
     int sampleRate = 0;
     std::vector<int16_t> samples;
 };

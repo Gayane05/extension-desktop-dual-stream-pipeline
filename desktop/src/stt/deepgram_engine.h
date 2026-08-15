@@ -6,11 +6,13 @@
 
 #include "stt/stt_engine.h"
 
-namespace ix {
+namespace ix
+{
 class WebSocket;
 }
 
-namespace dsp {
+namespace dsp
+{
 
 // Parses one Deepgram streaming "Results" message into a TranscriptEvent
 // (or nullopt for message types/shapes we don't care about). Free function
@@ -36,7 +38,8 @@ std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std
 // caller thread; those callbacks only invoke cb_ (assumed callback-safe, per
 // SherpaEngine's contract) and never touch engine state, so no additional
 // locking is needed here.
-class DeepgramEngine : public ISttEngine {
+class DeepgramEngine : public ISttEngine
+{
 public:
     DeepgramEngine(EngineOptions opts, TranscriptCallback cb);
     ~DeepgramEngine() override;
@@ -49,7 +52,7 @@ public:
 private:
     EngineOptions opts_;
     TranscriptCallback cb_;
-    std::unique_ptr<ix::WebSocket> ws_[2];  // one live connection per stream
+    std::unique_ptr<ix::WebSocket> ws_[kStreamCount];  // One live connection per stream.
 };
 
 }  // namespace dsp

@@ -6,7 +6,8 @@
 
 #include "core/protocol.h"
 
-namespace dsp {
+namespace dsp
+{
 
 Pipeline::Pipeline(const Config& cfg, ISttEngine& engine) : cfg_(cfg), engine_(engine) {}
 
@@ -27,7 +28,7 @@ bool Pipeline::start(std::string& error)
             .onAudio =
                 [this](AudioFrame&& frame) {
                     const int streamIndex = static_cast<int>(frame.stream);
-                    const StreamId streamId = frame.stream;  // capture before tryPush moves frame
+                    const StreamId streamId = frame.stream;  // Capture before tryPush moves frame.
                     const auto now = std::chrono::steady_clock::now().time_since_epoch();
                     lastFrameMs_[streamIndex].store(
                         std::chrono::duration_cast<std::chrono::milliseconds>(now).count());

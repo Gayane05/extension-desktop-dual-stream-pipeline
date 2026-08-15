@@ -11,7 +11,11 @@
 // makeAccumulator() -> sendFrame() -> WebSocket. Commanded by sw.js via
 // chrome.runtime messages (start/stop); reports status back the same way.
 const TAG = { mic: 0, tab: 1 };
-const CHUNK_SAMPLES = 1600; // 100 ms @ 16 kHz
+const CHUNK_SAMPLES = 1600; // 100 ms @ 16 kHz.
+const SAMPLE_RATE_HZ = 16000; // Wire-contract sample rate; must match desktop/src/core/protocol.h's kSampleRateHz.
+const PCM_MAX = 32767; // Max magnitude of a signed PCM16 sample.
+const BACKOFF_INITIAL_MS = 500; // First WS reconnect delay.
+const BACKOFF_MAX_MS = 8000; // Reconnect delay ceiling.
 
 let ws = null, ctx = null, tracks = [], reconnectTimer = null, active = false;
 let wsUrl = "";
@@ -24,7 +28,7 @@ let reconnectAttempts = 0;
 // graph). startGeneration makes each start() attempt check, after every
 // await, whether it is still the current attempt before touching shared
 // state; if not, it tears down whatever it privately acquired and bails.
-let startGeneration = 0; // bumped by stop() (and by a fresh start()) to invalidate stale in-flight start() calls
+let startGeneration = 0; // Bumped by stop() (and by a fresh start()) to invalidate stale in-flight start() calls.
 
 function status(patch) {
   chrome.runtime.sendMessage({ type: "offscreen-status", patch }).catch(() => {});
@@ -35,10 +39,10 @@ function sendFrame(tag, samples) {
   const buf = new ArrayBuffer(9 + samples.length * 2);
   const view = new DataView(buf);
   view.setUint8(0, tag);
-  view.setFloat64(1, Date.now(), true); // little-endian
+  view.setFloat64(1, Date.now(), true); // Little-endian.
   for (let i = 0; i < samples.length; i++) {
     const clampedSample = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(9 + i * 2, (clampedSample * 32767) | 0, true);
+    view.setInt16(9 + i * 2, (clampedSample * PCM_MAX) | 0, true);
   }
   ws.send(buf);
 }
@@ -63,7 +67,7 @@ function connectWs() {
   ws.onopen = () => {
     reconnectAttempts = 0;
     status({ ws: "connected", error: null });
-    ws.send(JSON.stringify({ type: "hello", version: 1, sampleRate: 16000, channels: 1, format: "s16le", streams: ["mic", "tab"] }));
+    ws.send(JSON.stringify({ type: "hello", version: 1, sampleRate: SAMPLE_RATE_HZ, channels: 1, format: "s16le", streams: ["mic", "tab"] }));
   };
   ws.onmessage = (ev) => {
     if (typeof ev.data !== "string") return;
@@ -77,7 +81,7 @@ function connectWs() {
     status({ ws: "disconnected", desktop: null });
     if (active) {
       reconnectAttempts++;
-      const delay = Math.min(8000, 500 * Math.pow(2, reconnectAttempts - 1));
+      const delay = Math.min(BACKOFF_MAX_MS, BACKOFF_INITIAL_MS * Math.pow(2, reconnectAttempts - 1));
       reconnectTimer = setTimeout(connectWs, delay);
     }
   };
@@ -96,7 +100,7 @@ async function start(tabStreamId, port) {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
   } catch (err) {
     active = false;
-    if (startGeneration !== myGen) return; // stop() (or a newer start) superseded this attempt; it already reported idle
+    if (startGeneration !== myGen) return; // stop() (or a newer start) superseded this attempt; it already reported idle.
     if (err.name === "NotAllowedError") {
       status({ capture: "error", micPermission: "needed", error: "Microphone permission needed — click the button in the popup." });
       chrome.runtime.sendMessage({ cmd: "openPermissionPage" }).catch(() => {});
@@ -114,7 +118,7 @@ async function start(tabStreamId, port) {
     });
   } catch (err) {
     micStream.getTracks().forEach((track) => track.stop());
-    if (startGeneration !== myGen) return; // superseded; stop() already reported idle
+    if (startGeneration !== myGen) return; // Superseded; stop() already reported idle.
     status({ capture: "error", error: "tab capture failed: " + (err.message || err) });
     return;
   }
@@ -126,10 +130,10 @@ async function start(tabStreamId, port) {
 
   tracks = [...micStream.getTracks(), ...tabStream.getTracks()];
 
-  // keep the call audible: route captured tab audio back to the speakers
+  // Keep the call audible: route captured tab audio back to the speakers.
   document.getElementById("passthrough").srcObject = tabStream;
 
-  ctx = new AudioContext({ sampleRate: 16000 });  // browser resamples for us
+  ctx = new AudioContext({ sampleRate: SAMPLE_RATE_HZ });  // Browser resamples for us.
   await ctx.audioWorklet.addModule("pcm-worklet.js");
   if (startGeneration !== myGen) {
     // ctx/tracks are module-level and may already have been torn down by a racing

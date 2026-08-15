@@ -14,7 +14,16 @@
 #include <cstdio>
 #include <string_view>
 
-namespace dsp {
+namespace dsp
+{
+
+// Highest valid TCP port number accepted by --port.
+inline constexpr int kMaxPort = 65535;
+// Valid range (seconds) for --endpoint-silence.
+inline constexpr double kMinEndpointSilenceSec = 0.2;
+inline constexpr double kMaxEndpointSilenceSec = 5.0;
+// Read chunk size when slurping settings.json off disk.
+inline constexpr size_t kSettingsReadBufferSize = 512;
 
 static bool takeValue(int argc, const char* const* argv, int& i, std::string& out,
                       std::string& error)
@@ -79,7 +88,7 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
                 std::from_chars(flagValue.data(), flagValue.data() + flagValue.size(), config.port);
             if (portParseResult.ec != std::errc{} ||
                 portParseResult.ptr != flagValue.data() + flagValue.size() || config.port <= 0 ||
-                config.port > 65535)
+                config.port > kMaxPort)
             {
                 error = "invalid port";
                 return std::nullopt;
@@ -121,7 +130,8 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
                 error = "invalid endpoint-silence";
                 return std::nullopt;
             }
-            if (config.endpointSilenceSec < 0.2 || config.endpointSilenceSec > 5.0)
+            if (config.endpointSilenceSec < kMinEndpointSilenceSec ||
+                config.endpointSilenceSec > kMaxEndpointSilenceSec)
             {
                 error = "endpoint-silence must be 0.2..5.0 seconds";
                 return std::nullopt;
@@ -167,7 +177,7 @@ bool loadSettingsFile(const std::string& path, Config& into)
         return false;
     }
     std::string text;
-    char readBuffer[512];
+    char readBuffer[kSettingsReadBufferSize];
     size_t bytesRead = 0;
     while ((bytesRead = fread(readBuffer, 1, sizeof(readBuffer), file)) > 0)
     {

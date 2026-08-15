@@ -17,7 +17,8 @@
 using namespace dsp;
 using namespace std::chrono_literals;
 
-namespace {
+namespace
+{
 template <typename Pred>
 bool waitFor(Pred predicate, std::chrono::milliseconds timeout = 5000ms)
 {
@@ -147,13 +148,13 @@ TEST(WsServer, BadHelloGetsErrorAndClose)
             closed = true;
         }
     });
-    client.disableAutomaticReconnection();  // so server-close doesn't trigger reconnect loops
+    client.disableAutomaticReconnection();  // So server-close doesn't trigger reconnect loops.
     client.start();
     ASSERT_TRUE(waitFor([&] { return open.load(); }));
 
+    // Wrong rate.
     client.sendText(
-        R"({"type":"hello","version":1,"sampleRate":48000,"channels":1,"format":"s16le"})");  // wrong
-                                                                                              // rate
+        R"({"type":"hello","version":1,"sampleRate":48000,"channels":1,"format":"s16le"})");
     EXPECT_TRUE(waitFor([&] { return gotError.load() && closed.load(); }));
     client.stop();
     server.stop();

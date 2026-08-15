@@ -10,7 +10,8 @@
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXWebSocketServer.h>
 
-namespace dsp {
+namespace dsp
+{
 
 WsServer::WsServer(int port, Callbacks cb) : port_(port), cb_(std::move(cb)) {}
 WsServer::~WsServer()
@@ -62,7 +63,7 @@ bool WsServer::start(std::string& error)
             {
                 if (auto hello = parseHello(msg->str))
                 {
-                    if (hello->version != 1 || hello->sampleRate != 16000 ||
+                    if (hello->version != 1 || hello->sampleRate != kSampleRateHz ||
                         hello->format != "s16le")
                     {
                         ws.sendText(buildErrorJson("unsupported version or format"));
@@ -117,7 +118,7 @@ bool WsServer::start(std::string& error)
             }
             if (!ok)
             {
-                return;  // audio before hello: dropped
+                return;  // Audio before hello: dropped.
             }
             auto frame = parseBinaryFrame(reinterpret_cast<const uint8_t*>(msg->str.data()),
                                           msg->str.size());

@@ -61,8 +61,8 @@ TEST(Config, SettingsFileInvalidValuesIgnored)
     std::ofstream(path) << R"({"engine":"whisper","provider":"cuda"})";
     Config in;
     EXPECT_TRUE(loadSettingsFile(path, in));
-    EXPECT_EQ(in.engine, "deepgram");  // invalid engine value fell back to default
-    EXPECT_EQ(in.provider, "cuda");    // valid provider still applied
+    EXPECT_EQ(in.engine, "deepgram");  // Invalid engine value fell back to default.
+    EXPECT_EQ(in.provider, "cuda");    // Valid provider still applied.
 }
 
 TEST(Config, CliOverridesSettingsFileBase)
@@ -74,8 +74,8 @@ TEST(Config, CliOverridesSettingsFileBase)
     std::string err;
     auto config = parseArgs(static_cast<int>(args.size()), args.data(), err, base);
     ASSERT_TRUE(config) << err;
-    EXPECT_EQ(config->engine, "sherpa");  // explicit CLI flag wins over the file
-    EXPECT_EQ(config->provider, "cuda");  // untouched file value survives
+    EXPECT_EQ(config->engine, "sherpa");  // Explicit CLI flag wins over the file.
+    EXPECT_EQ(config->provider, "cuda");  // Untouched file value survives.
     EXPECT_TRUE(config->engineOrProviderExplicit);
 }
 
@@ -104,10 +104,10 @@ TEST(Config, RejectsBadValues)
     EXPECT_FALSE(parse({"--provider", "opencl"}, err));
     EXPECT_FALSE(parse({"--decoding", "fast"}, err));
     EXPECT_FALSE(parse({"--endpoint-silence", "abc"}, err));
-    EXPECT_FALSE(parse({"--endpoint-silence", "0.1"}, err));  // below range
-    EXPECT_FALSE(parse({"--endpoint-silence", "6"}, err));    // above range
+    EXPECT_FALSE(parse({"--endpoint-silence", "0.1"}, err));  // Below range.
+    EXPECT_FALSE(parse({"--endpoint-silence", "6"}, err));    // Above range.
     EXPECT_FALSE(parse({"--port", "notanumber"}, err));
-    EXPECT_FALSE(parse({"--port"}, err));  // missing value
+    EXPECT_FALSE(parse({"--port"}, err));  // Missing value.
     EXPECT_FALSE(parse({"--unknown-flag"}, err));
 }
 
@@ -117,14 +117,14 @@ TEST(Config, RejectsOutOfRangePorts)
     EXPECT_FALSE(parse({"--port", "0"}, err));
     EXPECT_FALSE(parse({"--port", "-1"}, err));
     EXPECT_FALSE(parse({"--port", "65536"}, err));
-    EXPECT_TRUE(parse({"--port", "65535"}, err));  // boundary: valid
-    EXPECT_TRUE(parse({"--port", "1"}, err));      // boundary: valid
+    EXPECT_TRUE(parse({"--port", "65535"}, err));  // Boundary: valid.
+    EXPECT_TRUE(parse({"--port", "1"}, err));      // Boundary: valid.
 }
 
 TEST(Config, RejectsPartialNumericPort)
 {
     std::string err;
-    EXPECT_FALSE(parse({"--port", "8080x"}, err));  // trailing garbage: full-string parse branch
+    EXPECT_FALSE(parse({"--port", "8080x"}, err));  // Trailing garbage: full-string parse branch.
 }
 
 TEST(Config, RejectsMissingValuesForAllValuedFlags)

@@ -7,7 +7,8 @@
 #pragma once
 #include <string>
 
-namespace dsp {
+namespace dsp
+{
 
 // Writes `text` to `path` as raw bytes ("wb" mode). Returns true only on
 // full success: the file opened, every byte of `text` was written, and the

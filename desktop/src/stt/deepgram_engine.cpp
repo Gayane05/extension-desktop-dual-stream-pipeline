@@ -14,7 +14,8 @@
 #include <chrono>
 #include <cstdio>
 
-namespace dsp {
+namespace dsp
+{
 
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std::string& json,
                                                     double nowMs)
@@ -85,10 +86,10 @@ bool DeepgramEngine::start(std::string& error)
     // sends (raw PCM16 mono @ 16 kHz, no header) -- Deepgram has no way to
     // infer the format itself for a raw linear16 stream, unlike the WAV/ogg
     // uploads its non-streaming API can sniff.
-    const std::string url =
-        "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000"
-        "&channels=1&interim_results=true&punctuate=true&model=nova-2";
-    for (int i = 0; i < 2; ++i)
+    const std::string url = "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=" +
+                            std::to_string(kSampleRateHz) +
+                            "&channels=1&interim_results=true&punctuate=true&model=nova-2";
+    for (int i = 0; i < kStreamCount; ++i)
     {
         auto streamId = static_cast<StreamId>(i);
         ws_[i] = std::make_unique<ix::WebSocket>();
@@ -96,7 +97,7 @@ bool DeepgramEngine::start(std::string& error)
         ix::WebSocketHttpHeaders headers;
         headers["Authorization"] = "Token " + opts_.deepgramKey;
         ws_[i]->setExtraHeaders(headers);
-        ws_[i]->enableAutomaticReconnection();  // per-stream reconnect w/ backoff
+        ws_[i]->enableAutomaticReconnection();  // Per-stream reconnect w/ backoff.
         ws_[i]->setOnMessageCallback([this, streamId](const ix::WebSocketMessagePtr& msg) {
             if (msg->type == ix::WebSocketMessageType::Message && !msg->binary)
             {

@@ -24,7 +24,8 @@
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
-namespace {
+namespace
+{
 ID3D11Device* g_device = nullptr;
 ID3D11DeviceContext* g_context = nullptr;
 IDXGISwapChain* g_swapChain = nullptr;
@@ -36,6 +37,24 @@ bool g_usingWarp = false;
 bool g_hasIconFont = false;
 // Segoe MDL2 Assets "Settings" gear glyph U+E713, UTF-8 encoded.
 constexpr const char* kIconSettings = "\xEE\x9C\x93";
+
+// Main window client-area size, in pixels.
+constexpr int kMainWindowWidth = 900;
+constexpr int kMainWindowHeight = 640;
+// Setup/Settings chooser window client-area size, in pixels.
+constexpr int kSetupWindowWidth = 720;
+constexpr int kSetupWindowHeight = 480;
+// Point size for the main UI text font.
+constexpr float kUiFontSize = 20.0f;
+// Point size for the merged Segoe MDL2 icon glyphs.
+constexpr float kIconFontSize = 18.0f;
+// How often (seconds) the render loop pushes a status heartbeat to the
+// extension.
+constexpr double kStatusPushIntervalSec = 1.0;
+// How long (seconds) the Save transcript status line stays visible.
+constexpr double kSaveStatusDisplaySec = 5.0;
+// Buffer size for the Deepgram API key input field.
+constexpr size_t kApiKeyBufferSize = 256;
 
 // D3D lifecycle: createDevice() (device+swapchain+RTV) pairs with
 // destroyDevice() (called once at shutdown), while createRenderTarget()
@@ -161,7 +180,7 @@ void applyThemeAndFont()
     for (const char* fontFile : {"SegUIVar.ttf", "segoeui.ttf"})
     {
         const std::string path = fontBase + fontFile;
-        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), 20.0f);
+        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), kUiFontSize);
         if (uiFont)
         {
             break;
@@ -181,10 +200,10 @@ void applyThemeAndFont()
         static const ImWchar iconRange[] = {0xE700, 0xE7FF, 0};
         ImFontConfig merge;
         merge.MergeMode = true;
-        merge.GlyphOffset = ImVec2(0.0f, 2.0f);  // optical alignment with text baseline
+        merge.GlyphOffset = ImVec2(0.0f, 2.0f);  // Optical alignment with text baseline.
         const std::string mdl2 = fontBase + "segmdl2.ttf";
         g_hasIconFont =
-            io.Fonts->AddFontFromFileTTF(mdl2.c_str(), 18.0f, &merge, iconRange) != nullptr;
+            io.Fonts->AddFontFromFileTTF(mdl2.c_str(), kIconFontSize, &merge, iconRange) != nullptr;
     }
 }
 
@@ -217,7 +236,8 @@ LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 }  // namespace
 
-namespace dsp {
+namespace dsp
+{
 
 int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg)
 {
@@ -225,9 +245,9 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
                                ::GetModuleHandleW(nullptr), nullptr,    nullptr, nullptr, nullptr,
                                L"DualStreamTranscriber",    nullptr};
     ::RegisterClassExW(&windowClass);
-    HWND hwnd =
-        ::CreateWindowW(windowClass.lpszClassName, L"Dual-Stream Transcriber", WS_OVERLAPPEDWINDOW,
-                        100, 100, 900, 640, nullptr, nullptr, windowClass.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(windowClass.lpszClassName, L"Dual-Stream Transcriber",
+                                WS_OVERLAPPEDWINDOW, 100, 100, kMainWindowWidth, kMainWindowHeight,
+                                nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!createDevice(hwnd))
     {
         ::DestroyWindow(hwnd);
@@ -243,15 +263,15 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);   // blue - You
-    const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);   // orange - Others
-    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);  // slate-tinted secondary text
+    const ImVec4 micColor(0.43f, 0.66f, 1.0f, 1.0f);   // Blue - You.
+    const ImVec4 tabColor(1.0f, 0.72f, 0.42f, 1.0f);   // Orange - Others.
+    const ImVec4 dimColor(0.55f, 0.58f, 0.66f, 1.0f);  // Slate-tinted secondary text.
     const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
     bool autoscroll = true;
-    std::string saveStatus;        // empty when nothing to report
-    double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after
+    std::string saveStatus;        // Empty when nothing to report.
+    double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after.
     bool done = false;
-    int exitCode = 0;  // kRunUiRestartSetup when the Settings button was used
+    int exitCode = 0;  // kRunUiRestartSetup when the Settings button was used.
     // Status otherwise only pushes to the extension on hello/clientGone,
     // which leaves the popup showing stale (or initial "idle/idle") state
     // for the rest of a session. Push ~1x/second from the render loop too.
@@ -282,7 +302,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::NewFrame();
 
         const double now = ImGui::GetTime();
-        if (now - lastStatusPush >= 1.0)
+        if (now - lastStatusPush >= kStatusPushIntervalSec)
         {
             pipeline.pushStatus();
             lastStatusPush = now;
@@ -319,7 +339,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
             {
                 saveStatus = "save failed: " + err;
             }
-            saveStatusUntil = ImGui::GetTime() + 5.0;
+            saveStatusUntil = ImGui::GetTime() + kSaveStatusDisplaySec;
         }
         if (!saveStatus.empty())
         {
@@ -379,7 +399,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // match WindowBg
+        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // Match WindowBg.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -407,9 +427,9 @@ bool runSetupUi(Config& cfg)
                                ::GetModuleHandleW(nullptr),   nullptr,    nullptr, nullptr, nullptr,
                                L"DualStreamTranscriberSetup", nullptr};
     ::RegisterClassExW(&windowClass);
-    HWND hwnd =
-        ::CreateWindowW(windowClass.lpszClassName, L"Transcriber Setup", WS_OVERLAPPEDWINDOW, 200,
-                        200, 720, 480, nullptr, nullptr, windowClass.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(
+        windowClass.lpszClassName, L"Transcriber Setup", WS_OVERLAPPEDWINDOW, 200, 200,
+        kSetupWindowWidth, kSetupWindowHeight, nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!createDevice(hwnd))
     {
         ::DestroyWindow(hwnd);
@@ -430,7 +450,7 @@ bool runSetupUi(Config& cfg)
     // API key entry for Deepgram. Pre-filled from a previously saved key so
     // the field doubles as "view/replace" on later Settings visits. Kept
     // masked by default; the checkbox reveals it for verifying a paste.
-    char keyBuf[256] = {};
+    char keyBuf[kApiKeyBufferSize] = {};
     if (!cfg.deepgramKey.empty())
     {
         std::snprintf(keyBuf, sizeof(keyBuf), "%s", cfg.deepgramKey.c_str());
@@ -527,7 +547,7 @@ bool runSetupUi(Config& cfg)
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // match WindowBg
+        const float clear[4] = {0.085f, 0.095f, 0.120f, 1.0f};  // Match WindowBg.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

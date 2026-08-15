@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <fstream>
 
+#include "core/protocol.h"
 #include "core/wav.h"
 
 using namespace dsp;
@@ -38,7 +39,7 @@ static std::string writeTinyWav(int sampleRate, const std::vector<int16_t>& pcm)
 TEST(Wav, ReadsPcm16Mono)
 {
     std::vector<int16_t> pcm{1, -1, 32767, -32768};
-    auto path = writeTinyWav(16000, pcm);
+    auto path = writeTinyWav(kSampleRateHz, pcm);
     std::string err;
     auto wav = readWavPcm16Mono(path, err);
     ASSERT_TRUE(wav) << err;
@@ -71,7 +72,7 @@ TEST(Wav, RejectsShortFmtChunk)
     w32(8);
     w16(1);
     w16(1);
-    w32(16000);
+    w32(kSampleRateHz);
     file.write("data", 4);
     w32(0);
     file.close();
@@ -89,14 +90,14 @@ TEST(Wav, RejectsShortFmtChunk)
 TEST(Wav, RejectsTruncatedDataChunk)
 {
     std::vector<int16_t> pcm{1, -1, 32767, -32768};
-    auto path = writeTinyWav(16000, pcm);
+    auto path = writeTinyWav(kSampleRateHz, pcm);
     // Rewrite the data-chunk size field (RIFF header at offset 4, "fmt "
     // chunk header+body 8+16=24, "data" id+size at offset 12+24=36) to claim
     // twice as many bytes as were actually written, without adding them.
     std::fstream file(path, std::ios::binary | std::ios::in | std::ios::out);
     ASSERT_TRUE(file);
     uint32_t claimedSize = static_cast<uint32_t>(pcm.size() * 2 * 2);
-    file.seekp(4 + 4 + 4 + 4 + 4 + 2 + 2 + 4 + 4 + 2 + 2 + 4);  // start of data-size field
+    file.seekp(4 + 4 + 4 + 4 + 4 + 2 + 2 + 4 + 4 + 2 + 2 + 4);  // Start of data-size field.
     file.write(reinterpret_cast<char*>(&claimedSize), 4);
     file.close();
 

@@ -8,7 +8,8 @@
 #include <cstdio>
 #include <cstring>
 
-namespace dsp {
+namespace dsp
+{
 
 bool saveTranscriptFile(const std::string& path, const std::string& text, std::string& error)
 {

@@ -4,7 +4,8 @@
 #include <algorithm>
 #include <cstdio>
 
-namespace dsp {
+namespace dsp
+{
 
 // Two-tier state per stream: at most one "pending" (interim) utterance,
 // which is wholesale replaced by each new interim from the engine (there is
