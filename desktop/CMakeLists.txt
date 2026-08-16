@@ -91,6 +91,10 @@ target_sources(dsp_core PRIVATE
     src/core/protocol.cpp
     src/core/secret_store.h
     src/core/secret_store.cpp
+    src/stt/gpu_probe.h
+    src/stt/gpu_probe.cpp
+    src/stt/parakeet_engine.h
+    src/stt/parakeet_engine.cpp
     src/core/wav.h
     src/core/wav.cpp
     src/app/pipeline.h
@@ -129,6 +133,7 @@ add_executable(dsp_tests
     tests/test_wav.cpp
     tests/test_save_transcript.cpp
     tests/test_secret_store.cpp
+    tests/test_parakeet_engine.cpp
 )
 target_link_libraries(dsp_tests PRIVATE dsp_core gtest::gtest)
 dsp_copy_runtime_dlls(dsp_tests)

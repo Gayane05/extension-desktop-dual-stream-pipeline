@@ -181,7 +181,7 @@ Flags:
 
 | Flag | Values | Default | Description |
 |---|---|---|---|
-| `--engine` | `sherpa` \| `deepgram` | `deepgram` | STT backend (`sherpa` = fully local, no account needed) |
+| `--engine` | `sherpa` \| `deepgram` \| `parakeet` | `deepgram` | STT backend (`sherpa`/`parakeet` = fully local, no account needed) |
 | `--provider` | `cpu` \| `cuda` \| `tensorrt` | `cpu` | ONNX Runtime execution provider (sherpa engine only) |
 | `--port` | 1–65535 | `8765` | WebSocket listen port |
 | `--model-dir` | path | `models` | Directory containing the sherpa-onnx model files |
@@ -277,6 +277,32 @@ toolkit, driver mismatch, etc.), the engine transparently retries on `cpu` inste
 crashing or refusing to start. The status bar's `engine: sherpa (<provider>)` text is the
 visible notice — if you passed `--provider cuda` but the bar reads `sherpa (cpu)`, GPU init
 fell back to CPU.
+
+## Parakeet engine (highest local accuracy)
+
+`--engine parakeet` runs NVIDIA's Parakeet TDT 0.6B on-device via sherpa-onnx — the most
+accurate local option (leaderboard-class English WER), with a different live behavior:
+Parakeet is a non-streaming model, so a Silero VAD splits the audio into utterances (the
+pause length reuses `--endpoint-silence`) and each one is transcribed whole. Finals appear
+~1–2 s after every pause; there are no word-by-word interim updates.
+
+One-time model download (~660 MB total):
+
+```powershell
+powershell -File scripts/download-model.ps1 -Model sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8
+powershell -File scripts/download-model.ps1 -Model silero_vad.onnx
+```
+
+Then:
+
+```powershell
+cd desktop
+.\build\Release\transcriber.exe --engine parakeet
+cd ..
+```
+
+The `--provider cuda` knob applies here too (same automatic CPU fallback). The Settings
+gear also offers this mode as "Local (Parakeet)".
 
 ## Deepgram backend
 
@@ -374,7 +400,10 @@ to watch the transcript render live instead of reading JSONL from stdout.
    cd ..
    ```
 2. Keep `--decoding beam` (the default); `greedy` is faster but less accurate.
-3. For maximum accuracy, use the cloud backend: `--engine deepgram` (see
+3. For the best local accuracy, switch to `--engine parakeet` (see
+   [Parakeet engine](#parakeet-engine-highest-local-accuracy)) — near-live utterance
+   steps instead of word-by-word streaming.
+4. For maximum accuracy overall, use the cloud backend: `--engine deepgram` (see
    [Deepgram backend](#deepgram-backend)).
 Note the local models output uppercase text without punctuation — that is a
 property of their training data, not a transcription error.

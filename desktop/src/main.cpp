@@ -27,6 +27,7 @@
 #include "app/pipeline.h"
 #include "app/transcript_model.h"
 #include "stt/deepgram_engine.h"
+#include "stt/parakeet_engine.h"
 #include "stt/sherpa_engine.h"
 
 namespace dsp
@@ -108,6 +109,10 @@ static std::unique_ptr<dsp::ISttEngine> makeEngine(const dsp::Config& cfg,
     if (cfg.engine == "deepgram")
     {
         return std::make_unique<dsp::DeepgramEngine>(opts, std::move(transcriptCallback));
+    }
+    if (cfg.engine == "parakeet")
+    {
+        return std::make_unique<dsp::ParakeetEngine>(opts, std::move(transcriptCallback));
     }
     return std::make_unique<dsp::SherpaEngine>(opts, std::move(transcriptCallback));
 }

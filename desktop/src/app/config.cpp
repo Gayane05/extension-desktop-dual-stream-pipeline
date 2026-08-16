@@ -58,9 +58,9 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
             {
                 return std::nullopt;
             }
-            if (flagValue != "sherpa" && flagValue != "deepgram")
+            if (flagValue != "sherpa" && flagValue != "deepgram" && flagValue != "parakeet")
             {
-                error = "engine must be sherpa|deepgram";
+                error = "engine must be sherpa|deepgram|parakeet";
                 return std::nullopt;
             }
             config.engine = flagValue;
@@ -199,7 +199,7 @@ bool loadSettingsFile(const std::string& path, Config& into)
     if (jsonDoc.HasMember("engine") && jsonDoc["engine"].IsString())
     {
         const std::string value = jsonDoc["engine"].GetString();
-        if (value == "sherpa" || value == "deepgram")
+        if (value == "sherpa" || value == "deepgram" || value == "parakeet")
         {
             into.engine = value;
         }

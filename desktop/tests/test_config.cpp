@@ -119,6 +119,7 @@ TEST(Config, RejectsBadValues)
 {
     std::string err;
     EXPECT_FALSE(parse({"--engine", "whisper"}, err));
+    EXPECT_TRUE(parse({"--engine", "parakeet"}, err));
     EXPECT_FALSE(parse({"--provider", "opencl"}, err));
     EXPECT_FALSE(parse({"--decoding", "fast"}, err));
     EXPECT_FALSE(parse({"--endpoint-silence", "abc"}, err));

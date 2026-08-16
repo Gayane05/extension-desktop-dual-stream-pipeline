@@ -13,11 +13,7 @@
 #include <filesystem>
 #include <vector>
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <windows.h>
-#endif
+#include "stt/gpu_probe.h"
 
 namespace fs = std::filesystem;
 
@@ -114,45 +110,6 @@ constexpr float kRule1TrailingSilenceSec = 2.4f;
 // Endpoint rule3: force-finalize an utterance that has run this long without
 // ever pausing, so run-on speech still gets split into finals.
 constexpr float kRule3MaxUtteranceSec = 20.0f;
-
-// Verifies a GPU provider's runtime DLLs can actually load BEFORE handing
-// the provider to ONNX Runtime: a missing dependency (e.g. cuDNN not on
-// PATH) makes ORT abort the whole process -- not a catchable error -- so
-// probing here is the only way the cpu fallback in start() can ever engage.
-static bool gpuProviderRuntimeAvailable(const std::string& provider, std::string& error)
-{
-#ifdef _WIN32
-    const char* requiredDlls[2] = {nullptr, nullptr};
-    if (provider == "cuda")
-    {
-        requiredDlls[0] = "onnxruntime_providers_cuda.dll";
-        requiredDlls[1] = "cudnn64_9.dll";
-    }
-    else if (provider == "tensorrt")
-    {
-        requiredDlls[0] = "onnxruntime_providers_tensorrt.dll";
-    }
-    for (const char* dllName : requiredDlls)
-    {
-        if (!dllName)
-        {
-            continue;
-        }
-        HMODULE probe = LoadLibraryA(dllName);
-        if (!probe)
-        {
-            error = std::string(dllName) + " could not be loaded (Win32 error " +
-                    std::to_string(GetLastError()) +
-                    ") -- is the CUDA/cuDNN runtime installed and on PATH? (provider=" + provider +
-                    ")";
-            return false;
-        }
-        // Keep the module loaded: ORT will need it immediately anyway, and
-        // holding the reference avoids a pointless unload/reload cycle.
-    }
-#endif
-    return true;
-}
 
 bool SherpaEngine::createRecognizer(const std::string& provider, std::string& error)
 {

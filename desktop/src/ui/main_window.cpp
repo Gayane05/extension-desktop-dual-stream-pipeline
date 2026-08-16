@@ -522,6 +522,18 @@ bool runSetupUi(Config& cfg)
         ImGui::TextColored(dimColor, "On-device transcription on the CPU. Works everywhere.");
         ImGui::Spacing();
 
+        if (ImGui::Button("Local (Parakeet)  -  highest accuracy, near-live", ImVec2(-1.0f, 0.0f)))
+        {
+            cfg.engine = "parakeet";
+            chosen = true;
+            done = true;
+        }
+        ImGui::TextColored(dimColor,
+                           "NVIDIA Parakeet 0.6B on-device. Best local accuracy; transcript "
+                           "updates in utterance-sized steps after each pause instead of word "
+                           "by word. Needs the Parakeet model downloaded (see README).");
+        ImGui::Spacing();
+
         if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
         {
             cfg.engine = "deepgram";
