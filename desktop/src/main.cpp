@@ -175,11 +175,13 @@ int main(int argc, char** argv)
 
     resolveDefaultModelDir(*cfg);
 
-    // The mode chooser is opt-in: it opens only from the Settings button (or
-    // when the chosen engine fails to start in GUI mode, as a recovery path).
-    // Fresh installs simply run the default engine (Deepgram).
-    (void)haveSettings;
-    bool showSetup = false;
+    // The Settings page opens on the very first run (no settings file yet)
+    // and, if the user checked "Ask every startup", on every launch. It also
+    // reopens from the Settings button and when the chosen engine fails to
+    // start in GUI mode (recovery path). Explicit --engine/--provider flags
+    // and headless runs skip it: they already state how to run.
+    bool showSetup =
+        !cfg->headless && !cfg->engineOrProviderExplicit && (!haveSettings || cfg->askOnStartup);
 
     // Each loop iteration is one full engine lifetime. The Settings button
     // exits runUi with kRunUiRestartSetup; we then re-run the chooser, persist

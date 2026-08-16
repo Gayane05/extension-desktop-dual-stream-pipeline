@@ -197,14 +197,17 @@ overridden, the app looks for `models/` next to the exe and up to two parent lev
 (so `desktop\models` is found from `desktop\build\Release`). A console window opens
 alongside the UI — that is expected (the same binary serves `--headless` runs).
 
-**Settings.** The **Settings** button (gear icon) in the main window opens a mode chooser —
-local sherpa on GPU (CUDA), local sherpa on CPU, or the Deepgram cloud API — and
-restarts the engine with the new choice. The choice is saved to `settings.json` next
-to the exe and applied automatically on every later start. Precedence: built-in
-defaults (Deepgram) < `settings.json` < explicit CLI flags. If the configured engine
-fails to start in GUI mode (e.g. Deepgram without `DEEPGRAM_API_KEY`), the error is
-shown and the chooser opens so you can pick a working mode. Headless runs never show
-UI and use the resolved config as-is.
+**Settings.** The Settings page opens automatically on the very first launch; pick how
+speech-to-text should run — local sherpa on GPU (CUDA), local sherpa on CPU, local
+Parakeet, or the Deepgram cloud API. The choice is saved to `settings.json` next to the
+exe and applied automatically on every later start. An **Ask every startup** checkbox on
+the page controls what happens next: when checked, the page opens at every launch; when
+unchecked, it opens only via the **Settings** button (gear icon) in the main window,
+which restarts the engine with the new choice. Precedence: built-in defaults (Deepgram)
+< `settings.json` < explicit CLI flags. If the configured engine fails to start in GUI
+mode (e.g. Deepgram without `DEEPGRAM_API_KEY`), the error is shown and the page opens
+so you can pick a working mode. Headless runs and explicit `--engine`/`--provider`
+flags never show the page.
 
 ### Chrome extension
 

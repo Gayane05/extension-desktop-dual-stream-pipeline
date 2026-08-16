@@ -212,6 +212,10 @@ bool loadSettingsFile(const std::string& path, Config& into)
             into.provider = value;
         }
     }
+    if (jsonDoc.HasMember("askOnStartup") && jsonDoc["askOnStartup"].IsBool())
+    {
+        into.askOnStartup = jsonDoc["askOnStartup"].GetBool();
+    }
     // The key is stored DPAPI-protected (see core/secret_store.h). A blob
     // that fails to unprotect (different user, re-imaged machine, corruption)
     // is treated as "no key stored" -- the user simply re-enters it.
@@ -241,6 +245,8 @@ bool saveSettingsFile(const std::string& path, const Config& cfg)
     jsonWriter.String(cfg.engine.c_str());
     jsonWriter.Key("provider");
     jsonWriter.String(cfg.provider.c_str());
+    jsonWriter.Key("askOnStartup");
+    jsonWriter.Bool(cfg.askOnStartup);
     if (!cfg.deepgramKey.empty())
     {
         // Never write the key in plaintext. If protection fails (it should

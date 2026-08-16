@@ -31,6 +31,10 @@ struct Config
     // persisted; kept so callers can distinguish an explicit CLI choice from
     // defaults/settings-file values.
     bool engineOrProviderExplicit = false;
+    // "Ask every startup" checkbox on the Settings page. When true, the
+    // Settings page opens at every launch; when false, it opens only on the
+    // very first run (no settings file yet) or from the Settings button.
+    bool askOnStartup = false;
 };
 
 std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error);
@@ -39,8 +43,8 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
 std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error,
                                 const Config& base);
 
-// settings.json persistence (engine + provider only -- everything else stays
-// CLI-driven). load returns false and leaves `into` untouched when the file
+// settings.json persistence (engine + provider + the ask-on-startup flag --
+// everything else stays CLI-driven). load returns false and leaves `into` untouched when the file
 // is absent or unreadable; save overwrites atomically enough for our use
 // (single local writer). Both take the full file path.
 bool loadSettingsFile(const std::string& path, Config& into);

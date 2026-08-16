@@ -43,7 +43,7 @@ constexpr int kMainWindowWidth = 900;
 constexpr int kMainWindowHeight = 640;
 // Setup/Settings chooser window client-area size, in pixels.
 constexpr int kSetupWindowWidth = 720;
-constexpr int kSetupWindowHeight = 480;
+constexpr int kSetupWindowHeight = 650;
 // Point size for the main UI text font.
 constexpr float kUiFontSize = 20.0f;
 // Point size for the merged Segoe MDL2 icon glyphs.
@@ -455,6 +455,13 @@ bool runSetupUi(Config& cfg)
 
     const ImVec4 dimColor(0.541f, 0.518f, 0.467f, 1.0f);   // Faded ink #8a8477.
     const ImVec4 warnColor(0.671f, 0.404f, 0.129f, 1.0f);  // Amber ink, legible on paper.
+    // Captions must wrap at the window edge (TextColored clips instead), so
+    // every note below goes through this helper.
+    const auto colorWrapped = [](const ImVec4& color, const char* text) {
+        ImGui::PushStyleColor(ImGuiCol_Text, color);
+        ImGui::TextWrapped("%s", text);
+        ImGui::PopStyleColor();
+    };
     // API key entry for Deepgram. Pre-filled from a previously saved key so
     // the field doubles as "view/replace" on later Settings visits. Kept
     // masked by default; the checkbox reveals it for verifying a paste.
@@ -494,9 +501,9 @@ bool runSetupUi(Config& cfg)
         ImGui::Begin("setup", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
 
         ImGui::Text("How should speech-to-text run?");
-        ImGui::TextColored(dimColor,
-                           "Your choice is saved and applied automatically on every start. "
-                           "Change it any time via the Settings button.");
+        colorWrapped(dimColor,
+                     "Your choice is saved and applied automatically on every start. "
+                     "Change it any time via the Settings button.");
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -507,9 +514,9 @@ bool runSetupUi(Config& cfg)
             chosen = true;
             done = true;
         }
-        ImGui::TextColored(dimColor,
-                           "On-device transcription on your NVIDIA GPU. Falls back to CPU "
-                           "automatically if CUDA is unavailable.");
+        colorWrapped(dimColor,
+                     "On-device transcription on your NVIDIA GPU. Falls back to CPU "
+                     "automatically if CUDA is unavailable.");
         ImGui::Spacing();
 
         if (ImGui::Button("Local (sherpa-onnx)  -  CPU", ImVec2(-1.0f, 0.0f)))
@@ -519,7 +526,7 @@ bool runSetupUi(Config& cfg)
             chosen = true;
             done = true;
         }
-        ImGui::TextColored(dimColor, "On-device transcription on the CPU. Works everywhere.");
+        colorWrapped(dimColor, "On-device transcription on the CPU. Works everywhere.");
         ImGui::Spacing();
 
         if (ImGui::Button("Local (Parakeet)  -  highest accuracy, live", ImVec2(-1.0f, 0.0f)))
@@ -528,10 +535,10 @@ bool runSetupUi(Config& cfg)
             chosen = true;
             done = true;
         }
-        ImGui::TextColored(dimColor,
-                           "NVIDIA Parakeet 0.6B on-device. Best local accuracy; the interim "
-                           "line refreshes every ~1.2 s while you speak and the final replaces "
-                           "it. Needs the Parakeet model downloaded (see README).");
+        colorWrapped(dimColor,
+                     "NVIDIA Parakeet 0.6B on-device. Best local accuracy; the interim "
+                     "line refreshes every ~1.2 s while you speak and the final replaces "
+                     "it. Needs the Parakeet model downloaded (see README).");
         ImGui::Spacing();
 
         if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
@@ -540,9 +547,9 @@ bool runSetupUi(Config& cfg)
             chosen = true;
             done = true;
         }
-        ImGui::TextColored(dimColor,
-                           "Streams audio to Deepgram's API. Best accuracy, punctuated "
-                           "output; requires an API key (free at console.deepgram.com).");
+        colorWrapped(dimColor,
+                     "Streams audio to Deepgram's API. Best accuracy, punctuated "
+                     "output; requires an API key (free at console.deepgram.com).");
         ImGui::SetNextItemWidth(-130.0f);
         ImGui::InputText("##dgkey", keyBuf, sizeof(keyBuf),
                          showKey ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_Password);
@@ -552,17 +559,25 @@ bool runSetupUi(Config& cfg)
         {
             if (envKeyPresent)
             {
-                ImGui::TextColored(dimColor,
-                                   "Using the DEEPGRAM_API_KEY environment variable; paste a "
-                                   "key above only to override it.");
+                colorWrapped(dimColor,
+                             "Using the DEEPGRAM_API_KEY environment variable; paste a "
+                             "key above only to override it.");
             }
             else
             {
-                ImGui::TextColored(warnColor,
-                                   "No API key found -- paste one above before choosing "
-                                   "Deepgram (or set DEEPGRAM_API_KEY).");
+                colorWrapped(warnColor,
+                             "No API key found -- paste one above before choosing "
+                             "Deepgram (or set DEEPGRAM_API_KEY).");
             }
         }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::Checkbox("Ask every startup", &cfg.askOnStartup);
+        ImGui::SameLine();
+        colorWrapped(dimColor, cfg.askOnStartup ? "This page will open at every launch."
+                                                : "This page opens only from the Settings button.");
 
         ImGui::End();
 

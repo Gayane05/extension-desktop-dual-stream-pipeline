@@ -38,6 +38,7 @@ TEST(Config, SettingsFileRoundTrip)
     out.engine = "deepgram";
     out.provider = "cuda";
     out.deepgramKey = "abc123testkey";
+    out.askOnStartup = true;
     const std::string path = std::string(::testing::TempDir()) + "settings-roundtrip.json";
     ASSERT_TRUE(saveSettingsFile(path, out));
     Config in;
@@ -45,6 +46,7 @@ TEST(Config, SettingsFileRoundTrip)
     EXPECT_EQ(in.engine, "deepgram");
     EXPECT_EQ(in.provider, "cuda");
     EXPECT_EQ(in.deepgramKey, "abc123testkey");
+    EXPECT_TRUE(in.askOnStartup);
     // The key must be stored DPAPI-protected: the file on disk must never
     // contain the plaintext key.
     std::ifstream savedFile(path);
