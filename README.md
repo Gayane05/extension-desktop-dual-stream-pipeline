@@ -4,7 +4,7 @@ A Chrome extension captures two separate audio streams from a browser tab (e.g. 
 Meet call) — the local **microphone** and the **tab audio** (remote participants) — and
 streams both to a local **C++ desktop app** over a WebSocket. The desktop app transcribes
 each stream independently, live, and renders a chronologically merged, two-lane transcript:
-blue **You** (mic) lines and orange **Others** (tab) lines.
+aqua **You** (mic) lines and coral **Others** (tab) lines.
 
 Two interchangeable speech engines sit behind one interface: the
 [Deepgram](https://deepgram.com) cloud API (the out-of-box default — best accuracy,
@@ -25,10 +25,11 @@ runtime and remembers the choice.
 4. [Build (desktop)](#build-desktop)
 5. [Run](#run)
 6. [GPU acceleration](#gpu-acceleration)
-7. [Deepgram backend](#deepgram-backend)
-8. [Testing & demo without Chrome](#testing--demo-without-chrome)
-9. [Design decisions](#design-decisions)
-10. [Troubleshooting](#troubleshooting)
+7. [Parakeet engine](#parakeet-engine-highest-local-accuracy)
+8. [Deepgram backend](#deepgram-backend)
+9. [Testing & demo without Chrome](#testing--demo-without-chrome)
+10. [Design decisions](#design-decisions)
+11. [Troubleshooting](#troubleshooting)
 
 ## Architecture
 
@@ -137,7 +138,7 @@ ctest --test-dir build --output-on-failure -C Release
 cd ..
 ```
 
-Expect `100% tests passed` (45 tests). The suite covers the wire protocol, the SPSC ring
+Expect `100% tests passed` (66 tests). The suite covers the wire protocol, the SPSC ring
 buffer, the transcript model, config parsing, the WS server (including single-client
 enforcement), the sherpa-onnx link/engine, Deepgram JSON parsing, WAV reading, and transcript
 save — no model or network access is required for `ctest` itself.
@@ -245,8 +246,8 @@ again in the popup.
 5. The popup's status rows mirror the desktop app: **Capture** → running, **Desktop app** →
    connected, **Engine** → the active engine/provider (e.g. `sherpa (cpu)` or
    `deepgram (cloud)`), **Mic / Tab** → streaming / streaming.
-6. Speak — your words appear as blue **You** lines in the desktop window. Other
-   participants' audio appears as orange **Others** lines. Interim (in-progress) text shows
+6. Speak — your words appear as aqua **You** lines in the desktop window. Other
+   participants' audio appears as coral **Others** lines. Interim (in-progress) text shows
    dim/italic and firms into a final line as sherpa-onnx's endpoint detector fires.
 7. The tab keeps playing audibly throughout — captured tab audio is routed back to your
    speakers, since `tabCapture` mutes the tab by default.
@@ -436,7 +437,9 @@ run-on cap. For fast, flowing speech try `--endpoint-silence 0.5`; for slow
 dictation with long pauses, raise it to avoid splitting mid-sentence.
 
 **"model files not found in '...' -- run scripts/download-model.ps1"** — the desktop app
-prints this exact command and exits when the sherpa model directory is empty or incomplete.
+prints this exact command when the sherpa model directory is empty or incomplete (in GUI
+mode it also shows the error in a message box and reopens the Settings page so you can
+pick a working engine; headless runs exit).
 Run `powershell -File scripts/download-model.ps1` from the repo root, or point `--model-dir`
 at wherever you already have the model.
 
