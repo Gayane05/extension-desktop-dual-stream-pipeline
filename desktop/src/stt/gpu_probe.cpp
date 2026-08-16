@@ -17,15 +17,25 @@ namespace dsp
 bool gpuProviderRuntimeAvailable(const std::string& provider, std::string& error)
 {
 #ifdef _WIN32
-    const char* requiredDlls[2] = {nullptr, nullptr};
+    // Probe the CUDA runtime dependencies, NOT ONNX Runtime's own provider
+    // DLL: loading onnxruntime_providers_cuda.dll outside ORT's controlled
+    // startup fails its initialization (error 1114) even on machines where
+    // CUDA works, while ORT's own load of it succeeds. The process-killing
+    // abort this probe exists to prevent is triggered specifically by these
+    // third-party runtime DLLs being absent from the search path.
+    const char* requiredDlls[3] = {nullptr, nullptr, nullptr};
     if (provider == "cuda")
     {
-        requiredDlls[0] = "onnxruntime_providers_cuda.dll";
-        requiredDlls[1] = "cudnn64_9.dll";
+        requiredDlls[0] = "cudart64_12.dll";
+        requiredDlls[1] = "cublas64_12.dll";
+        requiredDlls[2] = "cudnn64_9.dll";
     }
     else if (provider == "tensorrt")
     {
-        requiredDlls[0] = "onnxruntime_providers_tensorrt.dll";
+        // TensorRT is documented as experimental; its core runtime DLL is
+        // the meaningful availability signal.
+        requiredDlls[0] = "cudart64_12.dll";
+        requiredDlls[1] = "nvinfer_10.dll";
     }
     for (const char* dllName : requiredDlls)
     {
