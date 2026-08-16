@@ -33,8 +33,10 @@
 namespace dsp
 {
 // Both implemented in desktop/src/ui/main_window.cpp. runUi returns
-// kRunUiRestartSetup when the Settings button asks for the mode chooser.
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg);
+// kRunUiRestartApply when a new mode was picked in its Settings modal
+// (cfg already updated), or kRunUiRestartSetup to reopen the standalone
+// chooser (engine-failure recovery).
+int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config& cfg);
 bool runSetupUi(Config& cfg);
 }  // namespace dsp
 
@@ -189,9 +191,10 @@ int main(int argc, char** argv)
     bool showSetup =
         !cfg->headless && !cfg->engineOrProviderExplicit && (!haveSettings || cfg->askOnStartup);
 
-    // Each loop iteration is one full engine lifetime. The Settings button
-    // exits runUi with kRunUiRestartSetup; we then re-run the chooser, persist
-    // the new choice, and rebuild engine + pipeline from scratch.
+    // Each loop iteration is one full engine lifetime. Picking a new mode in
+    // the in-window Settings modal exits runUi with kRunUiRestartApply and
+    // we rebuild engine + pipeline with the updated cfg; kRunUiRestartSetup
+    // (engine-failure recovery) re-runs the standalone chooser first.
     for (;;)
     {
         if (showSetup)
@@ -282,6 +285,16 @@ int main(int argc, char** argv)
         const int uiExitCode = dsp::runUi(pipeline, model, *engine, *cfg);
         pipeline.stop();
         engine->stop();
+        if (uiExitCode == dsp::kRunUiRestartApply)
+        {
+            // A new mode was picked in the in-window Settings modal; cfg is
+            // already updated, so persist it and rebuild the engine directly.
+            if (!dsp::saveSettingsFile(settingsPath, *cfg))
+            {
+                std::fprintf(stderr, "warning: could not write %s\n", settingsPath.c_str());
+            }
+            continue;
+        }
         if (uiExitCode == dsp::kRunUiRestartSetup)
         {
             showSetup = true;

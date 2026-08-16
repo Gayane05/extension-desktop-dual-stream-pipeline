@@ -6,6 +6,9 @@
 // writes back is user intent (Clear/Save button clicks, the pushStatus()
 // heartbeat). Entered once from main() via runUi() and run until the window
 // is closed. Not built/used in --headless mode.
+// windows.h (pulled in by d3d11.h) defines min/max macros that break
+// std::min unless suppressed.
+#define NOMINMAX
 #include <d3d11.h>
 #include <dwmapi.h>
 #include <imgui.h>
@@ -14,6 +17,7 @@
 #include <shobjidl.h>
 #include <tchar.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -46,7 +50,7 @@ constexpr const char* kIconSettings = "\xEE\x9C\x93";
 
 // Main window client-area size, in pixels.
 constexpr int kMainWindowWidth = 980;
-constexpr int kMainWindowHeight = 640;
+constexpr int kMainWindowHeight = 740;
 // Setup/Settings chooser window client-area size, in pixels.
 constexpr int kSetupWindowWidth = 720;
 constexpr int kSetupWindowHeight = 590;
@@ -363,7 +367,145 @@ LRESULT WINAPI wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 namespace dsp
 {
 
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const Config& cfg)
+namespace
+{
+
+// Settings-page palette, shared by the standalone chooser and the in-app
+// modal.
+const ImVec4 kSettingsDimColor(0.471f, 0.635f, 0.624f, 1.0f);      // Sea mist #78a29f.
+const ImVec4 kSettingsWarnColor(0.910f, 0.706f, 0.353f, 1.0f);     // Amber, legible on teal.
+const ImVec4 kSettingsCurrentColor(0.373f, 0.831f, 0.753f, 1.0f);  // Aqua #5fd4c0.
+
+// Captions must wrap at the window edge (TextColored clips instead), so
+// every note on the Settings page goes through this helper.
+void drawColorWrapped(const ImVec4& color, const char* text)
+{
+    ImGui::PushStyleColor(ImGuiCol_Text, color);
+    ImGui::TextWrapped("%s", text);
+    ImGui::PopStyleColor();
+}
+
+// Human-readable name of the mode cfg currently selects, matching the card
+// labels on the Settings page.
+std::string currentModeLabel(const Config& cfg)
+{
+    if (cfg.engine == "deepgram")
+    {
+        return "Deepgram  -  cloud";
+    }
+    if (cfg.engine == "parakeet")
+    {
+        return "Local (Parakeet)";
+    }
+    if (cfg.provider == "cpu")
+    {
+        return "Local (sherpa-onnx)  -  CPU";
+    }
+    return "Local (sherpa-onnx)  -  GPU / CUDA";
+}
+
+// The Settings page content shared by the standalone first-run window
+// (runSetupUi) and the in-app Settings modal (runUi): heading with the
+// currently selected mode, four engine cards, the Deepgram key field, and
+// the ask-on-startup checkbox. Returns true the frame the user picks a
+// card, after writing the choice (and the trimmed API key) into cfg.
+bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& showKey,
+                         bool envKeyPresent)
+{
+    bool chosen = false;
+    ImGui::Text("How should speech-to-text run?");
+    ImGui::TextColored(kSettingsDimColor, "Current:");
+    ImGui::SameLine();
+    ImGui::TextColored(kSettingsCurrentColor, "%s", currentModeLabel(cfg).c_str());
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (ImGui::Button("Local (sherpa-onnx)  -  GPU / CUDA", ImVec2(-1.0f, 0.0f)))
+    {
+        cfg.engine = "sherpa";
+        cfg.provider = "cuda";
+        chosen = true;
+    }
+    drawColorWrapped(kSettingsDimColor,
+                     "On-device transcription on your NVIDIA GPU. Falls back to CPU "
+                     "automatically if CUDA is unavailable.");
+    ImGui::Spacing();
+
+    if (ImGui::Button("Local (sherpa-onnx)  -  CPU", ImVec2(-1.0f, 0.0f)))
+    {
+        cfg.engine = "sherpa";
+        cfg.provider = "cpu";
+        chosen = true;
+    }
+    drawColorWrapped(kSettingsDimColor, "On-device transcription on the CPU. Works everywhere.");
+    ImGui::Spacing();
+
+    if (ImGui::Button("Local (Parakeet)  -  highest accuracy, live", ImVec2(-1.0f, 0.0f)))
+    {
+        cfg.engine = "parakeet";
+        chosen = true;
+    }
+    drawColorWrapped(kSettingsDimColor,
+                     "NVIDIA Parakeet 0.6B on-device. Best local accuracy; the interim "
+                     "line refreshes every ~1.2 s while you speak and the final replaces "
+                     "it. Needs the Parakeet model downloaded (see README).");
+    ImGui::Spacing();
+
+    if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
+    {
+        cfg.engine = "deepgram";
+        chosen = true;
+    }
+    drawColorWrapped(kSettingsDimColor,
+                     "Streams audio to Deepgram's API. Best accuracy, punctuated "
+                     "output; requires an API key (free at console.deepgram.com).");
+    ImGui::SetNextItemWidth(-130.0f);
+    ImGui::InputText("##dgkey", keyBuf, keyBufSize,
+                     showKey ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_Password);
+    ImGui::SameLine();
+    ImGui::Checkbox("show", &showKey);
+    if (keyBuf[0] == '\0')
+    {
+        if (envKeyPresent)
+        {
+            drawColorWrapped(kSettingsDimColor,
+                             "Using the DEEPGRAM_API_KEY environment variable; paste a "
+                             "key above only to override it.");
+        }
+        else
+        {
+            drawColorWrapped(kSettingsWarnColor,
+                             "No API key found -- paste one above before choosing "
+                             "Deepgram (or set DEEPGRAM_API_KEY).");
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::Checkbox("Ask every startup", &cfg.askOnStartup);
+    ImGui::SameLine();
+    drawColorWrapped(kSettingsDimColor, cfg.askOnStartup
+                                            ? "This page will open at every launch."
+                                            : "This page opens only from the Settings button.");
+
+    // Persist the key with whatever mode was chosen (typing a key and
+    // picking a local engine still saves it for a later switch). Trim
+    // whitespace -- a trailing newline from a clipboard paste would corrupt
+    // the HTTP Authorization header.
+    if (chosen)
+    {
+        std::string key(keyBuf);
+        const auto first = key.find_first_not_of(" \t\r\n");
+        const auto last = key.find_last_not_of(" \t\r\n");
+        cfg.deepgramKey = (first == std::string::npos) ? "" : key.substr(first, last - first + 1);
+    }
+    return chosen;
+}
+
+}  // namespace
+
+int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config& cfg)
 {
     WNDCLASSEXW windowClass = {sizeof(windowClass),         CS_CLASSDC, wndProc, 0,       0,
                                ::GetModuleHandleW(nullptr), nullptr,    nullptr, nullptr, nullptr,
@@ -398,7 +540,14 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     std::string saveStatus;        // Empty when nothing to report.
     double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after.
     bool done = false;
-    int exitCode = 0;  // kRunUiRestartSetup when the Settings button was used.
+    int exitCode = 0;  // kRunUiRestartApply when a mode was picked in the Settings modal.
+    // Settings modal state. The modal edits a DRAFT copy of cfg so closing
+    // it without picking a card changes nothing; picking a card copies the
+    // draft back and asks main() to rebuild the engine.
+    Config settingsDraft;
+    char settingsKeyBuf[kApiKeyBufferSize] = {};
+    bool settingsShowKey = false;
+    const bool envKeyPresent = std::getenv("DEEPGRAM_API_KEY") != nullptr;
     // Status otherwise only pushes to the extension on hello/clientGone,
     // which leaves the popup showing stale (or initial "idle/idle") state
     // for the rest of a session. Push ~1x/second from the render loop too.
@@ -513,17 +662,44 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::SameLine();
         ImGui::Checkbox("Autoscroll", &autoscroll);
         ImGui::SameLine();
-        // Reopens the mode chooser: this window closes, main() rebuilds the
-        // engine with whatever the user picks there. Gear icon when the
-        // system icon font is available, text label otherwise.
+        // Opens the Settings modal OVER this window (the transcript stays
+        // visible and live behind it); only actually picking a mode makes
+        // main() rebuild the engine. Gear icon when the system icon font is
+        // available, text label otherwise.
         if (ImGui::Button(g_hasIconFont ? kIconSettings : "Settings"))
         {
-            exitCode = kRunUiRestartSetup;
-            done = true;
+            settingsDraft = cfg;
+            std::snprintf(settingsKeyBuf, sizeof(settingsKeyBuf), "%s", cfg.deepgramKey.c_str());
+            settingsShowKey = false;
+            ImGui::OpenPopup("Settings");
         }
         if (ImGui::IsItemHovered())
         {
             ImGui::SetTooltip("Settings");
+        }
+        const ImGuiViewport* mainViewport = ImGui::GetMainViewport();
+        ImGui::SetNextWindowPos(mainViewport->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        // Sized to the viewport so the whole page (cards through the
+        // ask-on-startup row) is visible without scrolling.
+        constexpr float kSettingsModalMargin = 40.0f;
+        ImGui::SetNextWindowSize(ImVec2(std::min(static_cast<float>(kSetupWindowWidth),
+                                                 mainViewport->WorkSize.x - kSettingsModalMargin),
+                                        mainViewport->WorkSize.y - kSettingsModalMargin),
+                                 ImGuiCond_Appearing);
+        // The bool* gives the modal a native X close button in its title
+        // bar; ImGui closes the popup itself when it is clicked.
+        bool settingsModalKeepOpen = true;
+        if (ImGui::BeginPopupModal("Settings", &settingsModalKeepOpen, ImGuiWindowFlags_NoMove))
+        {
+            if (drawSettingsContent(settingsDraft, settingsKeyBuf, sizeof(settingsKeyBuf),
+                                    settingsShowKey, envKeyPresent))
+            {
+                cfg = settingsDraft;
+                exitCode = kRunUiRestartApply;
+                done = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
         ImGui::Separator();
 
@@ -608,15 +784,6 @@ bool runSetupUi(Config& cfg)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 dimColor(0.471f, 0.635f, 0.624f, 1.0f);   // Sea mist #78a29f.
-    const ImVec4 warnColor(0.910f, 0.706f, 0.353f, 1.0f);  // Amber, legible on teal.
-    // Captions must wrap at the window edge (TextColored clips instead), so
-    // every note below goes through this helper.
-    const auto colorWrapped = [](const ImVec4& color, const char* text) {
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextWrapped("%s", text);
-        ImGui::PopStyleColor();
-    };
     // API key entry for Deepgram. Pre-filled from a previously saved key so
     // the field doubles as "view/replace" on later Settings visits. Kept
     // masked by default; the checkbox reveals it for verifying a paste.
@@ -654,83 +821,11 @@ bool runSetupUi(Config& cfg)
         ImGui::SetNextWindowPos(viewport->WorkPos);
         ImGui::SetNextWindowSize(viewport->WorkSize);
         ImGui::Begin("setup", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
-
-        ImGui::Text("How should speech-to-text run?");
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        if (ImGui::Button("Local (sherpa-onnx)  -  GPU / CUDA", ImVec2(-1.0f, 0.0f)))
+        if (drawSettingsContent(cfg, keyBuf, sizeof(keyBuf), showKey, envKeyPresent))
         {
-            cfg.engine = "sherpa";
-            cfg.provider = "cuda";
             chosen = true;
             done = true;
         }
-        colorWrapped(dimColor,
-                     "On-device transcription on your NVIDIA GPU. Falls back to CPU "
-                     "automatically if CUDA is unavailable.");
-        ImGui::Spacing();
-
-        if (ImGui::Button("Local (sherpa-onnx)  -  CPU", ImVec2(-1.0f, 0.0f)))
-        {
-            cfg.engine = "sherpa";
-            cfg.provider = "cpu";
-            chosen = true;
-            done = true;
-        }
-        colorWrapped(dimColor, "On-device transcription on the CPU. Works everywhere.");
-        ImGui::Spacing();
-
-        if (ImGui::Button("Local (Parakeet)  -  highest accuracy, live", ImVec2(-1.0f, 0.0f)))
-        {
-            cfg.engine = "parakeet";
-            chosen = true;
-            done = true;
-        }
-        colorWrapped(dimColor,
-                     "NVIDIA Parakeet 0.6B on-device. Best local accuracy; the interim "
-                     "line refreshes every ~1.2 s while you speak and the final replaces "
-                     "it. Needs the Parakeet model downloaded (see README).");
-        ImGui::Spacing();
-
-        if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
-        {
-            cfg.engine = "deepgram";
-            chosen = true;
-            done = true;
-        }
-        colorWrapped(dimColor,
-                     "Streams audio to Deepgram's API. Best accuracy, punctuated "
-                     "output; requires an API key (free at console.deepgram.com).");
-        ImGui::SetNextItemWidth(-130.0f);
-        ImGui::InputText("##dgkey", keyBuf, sizeof(keyBuf),
-                         showKey ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_Password);
-        ImGui::SameLine();
-        ImGui::Checkbox("show", &showKey);
-        if (keyBuf[0] == '\0')
-        {
-            if (envKeyPresent)
-            {
-                colorWrapped(dimColor,
-                             "Using the DEEPGRAM_API_KEY environment variable; paste a "
-                             "key above only to override it.");
-            }
-            else
-            {
-                colorWrapped(warnColor,
-                             "No API key found -- paste one above before choosing "
-                             "Deepgram (or set DEEPGRAM_API_KEY).");
-            }
-        }
-
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-        ImGui::Checkbox("Ask every startup", &cfg.askOnStartup);
-        ImGui::SameLine();
-        colorWrapped(dimColor, cfg.askOnStartup ? "This page will open at every launch."
-                                                : "This page opens only from the Settings button.");
-
         ImGui::End();
 
         ImGui::Render();
@@ -739,18 +834,6 @@ bool runSetupUi(Config& cfg)
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
         g_swapChain->Present(1, 0);
-    }
-
-    // Persist the key with whatever mode was chosen (typing a key and picking
-    // a local engine still saves it for a later switch). Trim whitespace --
-    // a trailing newline from a clipboard paste would corrupt the HTTP
-    // Authorization header.
-    if (chosen)
-    {
-        std::string key(keyBuf);
-        const auto first = key.find_first_not_of(" \t\r\n");
-        const auto last = key.find_last_not_of(" \t\r\n");
-        cfg.deepgramKey = (first == std::string::npos) ? "" : key.substr(first, last - first + 1);
     }
 
     ImGui_ImplDX11_Shutdown();
