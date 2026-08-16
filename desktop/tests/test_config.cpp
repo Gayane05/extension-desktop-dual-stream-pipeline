@@ -32,6 +32,20 @@ TEST(Config, Defaults)
     EXPECT_FALSE(config->engineOrProviderExplicit);
 }
 
+TEST(Config, LanguageFlagValidatesShape)
+{
+    std::string error;
+    const char* argvEn[] = {"transcriber", "--language", "en-US"};
+    auto config = parseArgs(3, argvEn, error);
+    ASSERT_TRUE(config.has_value());
+    EXPECT_EQ(config->language, "en-US");
+    EXPECT_EQ(Config{}.language, "multi");  // Default is automatic multilingual.
+    // Query-string metacharacters must be rejected, not pasted into the URL.
+    const char* argvBad[] = {"transcriber", "--language", "en&model=base"};
+    EXPECT_FALSE(parseArgs(3, argvBad, error).has_value());
+    EXPECT_NE(error.find("language"), std::string::npos);
+}
+
 TEST(Config, HelpFlagShortCircuitsParsing)
 {
     std::string error;
@@ -71,6 +85,7 @@ TEST(Config, SettingsFileRoundTrip)
     out.provider = "cuda";
     out.deepgramKey = "abc123testkey";
     out.askOnStartup = true;
+    out.language = "de";
     const std::string path = std::string(::testing::TempDir()) + "settings-roundtrip.json";
     ASSERT_TRUE(saveSettingsFile(path, out));
     Config in;
@@ -79,6 +94,7 @@ TEST(Config, SettingsFileRoundTrip)
     EXPECT_EQ(in.provider, "cuda");
     EXPECT_EQ(in.deepgramKey, "abc123testkey");
     EXPECT_TRUE(in.askOnStartup);
+    EXPECT_EQ(in.language, "de");
     // The key must be stored DPAPI-protected: the file on disk must never
     // contain the plaintext key.
     std::ifstream savedFile(path);

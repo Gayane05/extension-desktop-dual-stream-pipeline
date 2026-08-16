@@ -27,6 +27,28 @@ inline constexpr double kMaxEndpointSilenceSec = 5.0;
 // Read chunk size when slurping settings.json off disk.
 inline constexpr size_t kSettingsReadBufferSize = 512;
 
+// Accepts "multi" or a BCP-47-shaped tag (letters/digits/hyphens, e.g.
+// "en", "en-US", "es-419"). Deepgram validates the actual code; this check
+// only keeps arbitrary text out of the query string the tag is pasted into.
+static bool isValidLanguageTag(const std::string& tag)
+{
+    if (tag.empty() || tag.size() > 16)
+    {
+        return false;
+    }
+    for (const char tagChar : tag)
+    {
+        const bool alphanumeric = (tagChar >= 'a' && tagChar <= 'z') ||
+                                  (tagChar >= 'A' && tagChar <= 'Z') ||
+                                  (tagChar >= '0' && tagChar <= '9');
+        if (!alphanumeric && tagChar != '-')
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool takeValue(int argc, const char* const* argv, int& i, std::string& out,
                       std::string& error)
 {
@@ -146,6 +168,19 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
                 return std::nullopt;
             }
         }
+        else if (flag == "--language")
+        {
+            if (!takeValue(argc, argv, i, flagValue, error))
+            {
+                return std::nullopt;
+            }
+            if (!isValidLanguageTag(flagValue))
+            {
+                error = "language must be a BCP-47 code (e.g. en, es, de) or multi";
+                return std::nullopt;
+            }
+            config.language = flagValue;
+        }
         else if (flag == "--headless")
         {
             config.headless = true;
@@ -195,6 +230,11 @@ std::string usageText()
            "  --decoding beam|greedy              sherpa decoding method (default: beam).\n"
            "  --endpoint-silence SEC              Pause length that ends a sentence, 0.2-5.0\n"
            "                                      (default: 0.8).\n"
+           "  --language CODE|multi               Deepgram transcription language: a BCP-47\n"
+           "                                      code (en, es, de, ...) or multi for\n"
+           "                                      automatic multilingual transcription\n"
+           "                                      (default: multi). Local engines are\n"
+           "                                      English-only and ignore it.\n"
            "  --headless                          No window; print transcript JSONL to stdout\n"
            "                                      (finals) and stderr (interims).\n"
            "  --duration SEC                      Auto-stop after N seconds (headless runs).\n"
@@ -253,6 +293,14 @@ bool loadSettingsFile(const std::string& path, Config& into)
     {
         into.askOnStartup = jsonDoc["askOnStartup"].GetBool();
     }
+    if (jsonDoc.HasMember("language") && jsonDoc["language"].IsString())
+    {
+        const std::string value = jsonDoc["language"].GetString();
+        if (isValidLanguageTag(value))
+        {
+            into.language = value;
+        }
+    }
     // The key is stored DPAPI-protected (see core/secret_store.h). A blob
     // that fails to unprotect (different user, re-imaged machine, corruption)
     // is treated as "no key stored" -- the user simply re-enters it.
@@ -284,6 +332,8 @@ bool saveSettingsFile(const std::string& path, const Config& cfg)
     jsonWriter.String(cfg.provider.c_str());
     jsonWriter.Key("askOnStartup");
     jsonWriter.Bool(cfg.askOnStartup);
+    jsonWriter.Key("language");
+    jsonWriter.String(cfg.language.c_str());
     if (!cfg.deepgramKey.empty())
     {
         // Never write the key in plaintext. If protection fails (it should

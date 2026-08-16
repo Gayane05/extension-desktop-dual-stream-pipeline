@@ -27,6 +27,13 @@ namespace dsp
 std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std::string& json,
                                                     double connectionEpochMs);
 
+// Builds the wss://.../v1/listen URL for one stream connection. `language`
+// is a BCP-47 code or "multi" (automatic multilingual transcription);
+// "multi" also adds the endpointing value Deepgram recommends for
+// code-switching. Free function so the query-string assembly is
+// unit-testable without a connection.
+std::string buildDeepgramListenUrl(const std::string& language);
+
 // Cloud STT via Deepgram's streaming API. Implements ISttEngine; unlike
 // SherpaEngine there is no local model or shared decode state -- each stream
 // gets its own independent WS connection to Deepgram (ws_[0]/ws_[1]), so

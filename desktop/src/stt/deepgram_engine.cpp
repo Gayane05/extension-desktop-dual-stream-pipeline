@@ -83,6 +83,26 @@ DeepgramEngine::~DeepgramEngine()
     stop();
 }
 
+std::string buildDeepgramListenUrl(const std::string& language)
+{
+    // encoding/sample_rate/channels here must match what feed() actually
+    // sends (raw PCM16 mono @ 16 kHz, no header) -- Deepgram has no way to
+    // infer the format itself for a raw linear16 stream, unlike the WAV/ogg
+    // uploads its non-streaming API can sniff.
+    std::string url =
+        "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=" +
+        std::to_string(kSampleRateHz) +
+        "&channels=1&interim_results=true&punctuate=true&model=nova-3&language=" + language;
+    if (language == "multi")
+    {
+        // Deepgram's documented recommendation for multilingual
+        // code-switching: a 100 ms endpoint so language flips inside one
+        // utterance still split into clean results.
+        url += "&endpointing=100";
+    }
+    return url;
+}
+
 bool DeepgramEngine::start(std::string& error)
 {
     if (opts_.deepgramKey.empty())
@@ -92,13 +112,7 @@ bool DeepgramEngine::start(std::string& error)
             "variable or enter a key in the Settings screen";
         return false;
     }
-    // encoding/sample_rate/channels here must match what feed() actually
-    // sends (raw PCM16 mono @ 16 kHz, no header) -- Deepgram has no way to
-    // infer the format itself for a raw linear16 stream, unlike the WAV/ogg
-    // uploads its non-streaming API can sniff.
-    const std::string url = "wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=" +
-                            std::to_string(kSampleRateHz) +
-                            "&channels=1&interim_results=true&punctuate=true&model=nova-2";
+    const std::string url = buildDeepgramListenUrl(opts_.language);
     for (int i = 0; i < kStreamCount; ++i)
     {
         auto streamId = static_cast<StreamId>(i);
@@ -113,8 +127,8 @@ bool DeepgramEngine::start(std::string& error)
                                       streamIndex](const ix::WebSocketMessagePtr& msg) {
             if (msg->type == ix::WebSocketMessageType::Message && !msg->binary)
             {
-                if (auto transcriptEvent = parseDeepgramMessage(
-                        streamId, msg->str, connectionEpochMs_[streamIndex]))
+                if (auto transcriptEvent =
+                        parseDeepgramMessage(streamId, msg->str, connectionEpochMs_[streamIndex]))
                 {
                     cb_(*transcriptEvent);
                 }

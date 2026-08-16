@@ -26,6 +26,10 @@ struct EngineOptions
     std::string decoding = "beam";    // beam|greedy (sherpa).
     double endpointSilenceSec = 0.8;  // sherpa endpoint rule2 (see config.h).
     std::string deepgramKey;          // deepgram only.
+    // Deepgram only: BCP-47 code ("en", "es") or "multi" for automatic
+    // multilingual transcription with code-switching. Local models are
+    // English exports and ignore this.
+    std::string language = "multi";
 };
 
 class ISttEngine

@@ -62,3 +62,17 @@ TEST(DeepgramParse, IgnoresMetadataEmptyAndGarbage)
         R"({"type":"Results","is_final":false,"channel":{"alternatives":[{"transcript":""}]}})",
         0.0));
 }
+
+TEST(DeepgramUrl, MultiAddsEndpointingAndSpecificLanguageDoesNot)
+{
+    const std::string multiUrl = buildDeepgramListenUrl("multi");
+    EXPECT_NE(multiUrl.find("model=nova-3"), std::string::npos);
+    EXPECT_NE(multiUrl.find("language=multi"), std::string::npos);
+    // Deepgram's recommended endpointing for code-switching applies to
+    // multi only.
+    EXPECT_NE(multiUrl.find("endpointing=100"), std::string::npos);
+    const std::string englishUrl = buildDeepgramListenUrl("en");
+    EXPECT_NE(englishUrl.find("language=en"), std::string::npos);
+    EXPECT_EQ(englishUrl.find("endpointing"), std::string::npos);
+    EXPECT_NE(englishUrl.find("sample_rate=16000"), std::string::npos);
+}

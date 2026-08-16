@@ -27,6 +27,10 @@ struct Config
     // settings (local, gitignored); when empty, the DEEPGRAM_API_KEY
     // environment variable is used instead (see main.cpp's makeEngine).
     std::string deepgramKey;
+    // Deepgram transcription language: a BCP-47 code ("en", "es", "de") or
+    // "multi" (default) for automatic multilingual transcription with
+    // code-switching on nova-3. Local engines ignore it. Persisted.
+    std::string language = "multi";
     // True when --engine or --provider was given on the command line. Not
     // persisted; kept so callers can distinguish an explicit CLI choice from
     // defaults/settings-file values.

@@ -189,6 +189,7 @@ Flags:
 | `--endpoint-silence` | 0.2–5.0 s | `0.8` | Pause length after speech that finalizes an utterance (sherpa engine). Smaller = more sentence-like splits |
 | `--headless` | (flag) | off | No window; runs the pipeline and prints transcript JSONL to stdout (finals) / stderr (interims) |
 | `--duration` | seconds | `0` (run until Ctrl+C / window closed) | Auto-stop after N seconds (headless mode) |
+| `--language` | BCP-47 code or `multi` | `multi` | Deepgram transcription language; `multi` = automatic multilingual transcription with code-switching (nova-3). Local engines are English-only and ignore it |
 | `--help`, `-h` | (flag) | — | Print this flag summary and exit |
 
 Example: `.\build\Release\transcriber.exe --port 9000 --model-dir C:\models\zipformer`
@@ -340,6 +341,13 @@ cd ..
 Alternatively, paste the key into the field on the Settings screen (gear icon) — it is
 stored locally next to the exe (that file is gitignored) and takes precedence over the
 environment variable. Never commit your API key; it is never read from a CLI flag.
+
+**Language.** Deepgram runs on nova-3 with `language=multi` by default: the spoken
+language is recognized automatically (10+ languages), including code-switching
+mid-sentence. Pin a single language with `--language en` (any BCP-47 code) for slightly
+better accuracy when you know the meeting is monolingual. Deepgram's true
+`detect_language` parameter exists only for its pre-recorded API, not streaming —
+`multi` is the streaming equivalent.
 
 ## Testing & demo without Chrome
 
