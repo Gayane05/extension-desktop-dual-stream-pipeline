@@ -51,10 +51,10 @@ constexpr float kInterimIntervalSec = 1.2f;
 // Silero confirms speech only after its window + min-speech latency; reach
 // this far back so the estimated utterance start covers the onset.
 constexpr float kInterimLookbackSec = 0.6f;
-// Cap on how much audio one interim re-decode may cover; bounds decode cost
-// for run-on speech (the VAD's max_speech rule closes segments at 20 s).
-constexpr float kInterimMaxWindowSec = 12.0f;
-// Rolling per-lane history the interim snapshots are cut from.
+// Rolling per-lane history the interim snapshots are cut from. Must exceed
+// kVadMaxSpeechSec: an interim always re-decodes the whole open utterance
+// (so its first words never vanish from the line), and max_speech is the
+// longest an utterance can grow before the VAD force-closes it.
 constexpr float kHistoryMaxSec = 25.0f;
 
 constexpr int64_t secondsToSamples(float seconds)
@@ -349,9 +349,12 @@ void ParakeetEngine::maybeQueueInterim(StreamId streamId)
     }
     nextInterimAtAbs_[idx] = absSampleCount_[idx] + secondsToSamples(kInterimIntervalSec);
 
-    int64_t begin =
-        std::max(openStartAbs_[idx], absSampleCount_[idx] - secondsToSamples(kInterimMaxWindowSec));
-    begin = std::max(begin, historyBase_[idx]);
+    // Always decode from the utterance's START. A sliding window would be
+    // cheaper, but its decode no longer contains the utterance's first words,
+    // so the interim line's head would visibly vanish mid-speech. The VAD's
+    // max_speech rule bounds the window (it force-closes run-on utterances),
+    // and the closed part becomes an immutable final line.
+    const int64_t begin = std::max(openStartAbs_[idx], historyBase_[idx]);
     const int64_t offset = begin - historyBase_[idx];
     if (offset >= static_cast<int64_t>(history_[idx].size()))
     {
