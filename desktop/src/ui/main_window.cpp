@@ -425,7 +425,28 @@ bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& sho
     ImGui::Separator();
     ImGui::Spacing();
 
-    if (ImGui::Button("Local (sherpa-onnx)  -  GPU / CUDA", ImVec2(-1.0f, 0.0f)))
+    // The card matching the current selection is highlighted: aqua border
+    // and label on a fill nudged toward aqua, so "where am I" is visible
+    // without reading the Current line.
+    const auto drawModeCard = [](const char* label, bool isCurrent) {
+        if (isCurrent)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Border, kSettingsCurrentColor);
+            ImGui::PushStyleColor(ImGuiCol_Text, kSettingsCurrentColor);
+            ImGui::PushStyleColor(ImGuiCol_Button,
+                                  ImVec4(0.082f, 0.353f, 0.322f, 1.0f));  // Sea green #155a52.
+        }
+        const bool clicked = ImGui::Button(label, ImVec2(-1.0f, 0.0f));
+        if (isCurrent)
+        {
+            ImGui::PopStyleColor(3);
+        }
+        return clicked;
+    };
+    const bool currentSherpaGpu = cfg.engine == "sherpa" && cfg.provider != "cpu";
+    const bool currentSherpaCpu = cfg.engine == "sherpa" && cfg.provider == "cpu";
+
+    if (drawModeCard("Local (sherpa-onnx)  -  GPU / CUDA", currentSherpaGpu))
     {
         cfg.engine = "sherpa";
         cfg.provider = "cuda";
@@ -436,7 +457,7 @@ bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& sho
                      "automatically if CUDA is unavailable.");
     ImGui::Spacing();
 
-    if (ImGui::Button("Local (sherpa-onnx)  -  CPU", ImVec2(-1.0f, 0.0f)))
+    if (drawModeCard("Local (sherpa-onnx)  -  CPU", currentSherpaCpu))
     {
         cfg.engine = "sherpa";
         cfg.provider = "cpu";
@@ -445,7 +466,7 @@ bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& sho
     drawColorWrapped(kSettingsDimColor, "On-device transcription on the CPU. Works everywhere.");
     ImGui::Spacing();
 
-    if (ImGui::Button("Local (Parakeet)  -  highest accuracy, live", ImVec2(-1.0f, 0.0f)))
+    if (drawModeCard("Local (Parakeet)  -  highest accuracy, live", cfg.engine == "parakeet"))
     {
         cfg.engine = "parakeet";
         chosen = true;
@@ -456,7 +477,7 @@ bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& sho
                      "it. Needs the Parakeet model downloaded (see README).");
     ImGui::Spacing();
 
-    if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))
+    if (drawModeCard("Deepgram  -  cloud", cfg.engine == "deepgram"))
     {
         cfg.engine = "deepgram";
         chosen = true;
