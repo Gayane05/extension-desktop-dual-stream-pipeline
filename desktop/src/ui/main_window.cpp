@@ -159,18 +159,18 @@ void applyThemeAndFont()
     // court-reporter energy. Transcript lane colors live in runUi():
     // You = blue ink #2b4a8c, Others = red ink #a8402c.
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);   // Paper #f5f2ea.
-    colors[ImGuiCol_ChildBg] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);    // Page #fdfbf6.
-    colors[ImGuiCol_Text] = ImVec4(0.165f, 0.153f, 0.133f, 1.00f);       // Ink #2a2722.
-    colors[ImGuiCol_Border] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);     // Chip edge #c9c2b2.
-    colors[ImGuiCol_FrameBg] = ImVec4(0.918f, 0.898f, 0.847f, 1.00f);    // Field #eae5d8.
+    colors[ImGuiCol_WindowBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);  // Paper #f5f2ea.
+    colors[ImGuiCol_ChildBg] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);   // Page #fdfbf6.
+    colors[ImGuiCol_Text] = ImVec4(0.165f, 0.153f, 0.133f, 1.00f);      // Ink #2a2722.
+    colors[ImGuiCol_Border] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);    // Chip edge #c9c2b2.
+    colors[ImGuiCol_FrameBg] = ImVec4(0.918f, 0.898f, 0.847f, 1.00f);   // Field #eae5d8.
     colors[ImGuiCol_FrameBgHovered] = ImVec4(0.878f, 0.851f, 0.784f, 1.00f);
     colors[ImGuiCol_FrameBgActive] = ImVec4(0.839f, 0.804f, 0.722f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);        // Quiet chip.
+    colors[ImGuiCol_Button] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);  // Quiet chip.
     colors[ImGuiCol_ButtonHovered] = ImVec4(0.941f, 0.922f, 0.867f, 1.00f);
     colors[ImGuiCol_ButtonActive] = ImVec4(0.890f, 0.863f, 0.788f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.169f, 0.290f, 0.549f, 1.00f);     // Blue ink #2b4a8c.
-    colors[ImGuiCol_Separator] = ImVec4(0.867f, 0.839f, 0.776f, 1.00f);     // Rule #ddd6c6.
+    colors[ImGuiCol_CheckMark] = ImVec4(0.169f, 0.290f, 0.549f, 1.00f);  // Blue ink #2b4a8c.
+    colors[ImGuiCol_Separator] = ImVec4(0.867f, 0.839f, 0.776f, 1.00f);  // Rule #ddd6c6.
     colors[ImGuiCol_ScrollbarBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);
     colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);
     colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.702f, 0.671f, 0.592f, 1.00f);
@@ -522,16 +522,16 @@ bool runSetupUi(Config& cfg)
         ImGui::TextColored(dimColor, "On-device transcription on the CPU. Works everywhere.");
         ImGui::Spacing();
 
-        if (ImGui::Button("Local (Parakeet)  -  highest accuracy, near-live", ImVec2(-1.0f, 0.0f)))
+        if (ImGui::Button("Local (Parakeet)  -  highest accuracy, live", ImVec2(-1.0f, 0.0f)))
         {
             cfg.engine = "parakeet";
             chosen = true;
             done = true;
         }
         ImGui::TextColored(dimColor,
-                           "NVIDIA Parakeet 0.6B on-device. Best local accuracy; transcript "
-                           "updates in utterance-sized steps after each pause instead of word "
-                           "by word. Needs the Parakeet model downloaded (see README).");
+                           "NVIDIA Parakeet 0.6B on-device. Best local accuracy; the interim "
+                           "line refreshes every ~1.2 s while you speak and the final replaces "
+                           "it. Needs the Parakeet model downloaded (see README).");
         ImGui::Spacing();
 
         if (ImGui::Button("Deepgram  -  cloud", ImVec2(-1.0f, 0.0f)))

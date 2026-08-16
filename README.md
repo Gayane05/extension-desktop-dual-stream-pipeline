@@ -281,10 +281,12 @@ fell back to CPU.
 ## Parakeet engine (highest local accuracy)
 
 `--engine parakeet` runs NVIDIA's Parakeet TDT 0.6B on-device via sherpa-onnx — the most
-accurate local option (leaderboard-class English WER), with a different live behavior:
-Parakeet is a non-streaming model, so a Silero VAD splits the audio into utterances (the
-pause length reuses `--endpoint-silence`) and each one is transcribed whole. Finals appear
-~1–2 s after every pause; there are no word-by-word interim updates.
+accurate local option (leaderboard-class English WER). Parakeet is a non-streaming model,
+so a Silero VAD splits the audio into utterances (the pause length reuses
+`--endpoint-silence`) and each closed utterance is transcribed whole for the final line.
+While an utterance is still open, the audio accumulated so far is re-decoded every ~1.2 s
+on a background thread and shown as the interim line, so text appears ~1–2 s after speech
+starts and refines itself (with punctuation) until the final replaces it.
 
 One-time model download (~660 MB total):
 
@@ -401,8 +403,8 @@ to watch the transcript render live instead of reading JSONL from stdout.
    ```
 2. Keep `--decoding beam` (the default); `greedy` is faster but less accurate.
 3. For the best local accuracy, switch to `--engine parakeet` (see
-   [Parakeet engine](#parakeet-engine-highest-local-accuracy)) — near-live utterance
-   steps instead of word-by-word streaming.
+   [Parakeet engine](#parakeet-engine-highest-local-accuracy)) — interims refresh in
+   ~1.2 s steps instead of word by word.
 4. For maximum accuracy overall, use the cloud backend: `--engine deepgram` (see
    [Deepgram backend](#deepgram-backend)).
 Note the local models output uppercase text without punctuation — that is a
