@@ -7,6 +7,7 @@
 // heartbeat). Entered once from main() via runUi() and run until the window
 // is closed. Not built/used in --headless mode.
 #include <d3d11.h>
+#include <dwmapi.h>
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
@@ -24,6 +25,8 @@
 #include "app/transcript_model.h"
 #include "stt/stt_engine.h"
 #include "ui/save_transcript.h"
+
+#pragma comment(lib, "dwmapi.lib")
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 
@@ -58,6 +61,17 @@ constexpr double kStatusPushIntervalSec = 1.0;
 constexpr double kSaveStatusDisplaySec = 5.0;
 // Buffer size for the Deepgram API key input field.
 constexpr size_t kApiKeyBufferSize = 256;
+
+// Asks DWM to draw this window's title bar dark so the OS frame matches the
+// Lagoon theme instead of glaring white above it. Best-effort: on Windows
+// builds older than 20H1 the attribute is unknown and the call just fails.
+void applyDarkTitleBar(HWND hwnd)
+{
+    const BOOL useDarkTitleBar = TRUE;
+    constexpr DWORD kDwmwaUseImmersiveDarkMode = 20;
+    ::DwmSetWindowAttribute(hwnd, kDwmwaUseImmersiveDarkMode, &useDarkTitleBar,
+                            sizeof(useDarkTitleBar));
+}
 
 // D3D lifecycle: createDevice() (device+swapchain+RTV) pairs with
 // destroyDevice() (called once at shutdown), while createRenderTarget()
@@ -200,11 +214,11 @@ void drainThreadMessages()
 }
 
 // Shared by the main window and the setup chooser (runSetupUi) so both carry
-// the same dark-slate/indigo theme and Segoe UI font. Must run after
+// the same Lagoon theme and Segoe UI font. Must run after
 // ImGui::CreateContext() and before the first frame.
 void applyThemeAndFont()
 {
-    ImGui::StyleColorsLight();
+    ImGui::StyleColorsDark();
     // Larger click targets: FramePadding sizes buttons/checkboxes (default is
     // a cramped 4x3); a touch more rounding keeps them looking intentional.
     ImGuiStyle& style = ImGui::GetStyle();
@@ -215,31 +229,31 @@ void applyThemeAndFont()
     style.ScrollbarRounding = 5.0f;
     style.ItemSpacing = ImVec2(10.0f, 8.0f);
     style.WindowPadding = ImVec2(16.0f, 14.0f);
-    // Outlined "chip" buttons and framed panels are part of the paper look.
+    // Outlined chip buttons and framed panels carry over from the paper look.
     style.FrameBorderSize = 1.0f;
     style.ChildBorderSize = 1.0f;
-    // "Paper transcript" theme chosen by the user: a warm paper field
-    // (#f5f2ea) with a brighter page panel (#fdfbf6), near-black ink text,
-    // quiet outlined chip buttons, and two ink colors for the voices --
-    // court-reporter energy. Transcript lane colors live in runUi():
-    // You = blue ink #2b4a8c, Others = red ink #a8402c.
+    // "Lagoon" theme chosen by the user: deep teal glass -- a dark teal
+    // field (#12333a) with an even deeper transcript pane (#0e2a30), pale
+    // sea-glass text, and warm-vs-cool voice colors far apart on the wheel.
+    // Transcript lane colors live in runUi(): You = aqua #5fd4c0,
+    // Others = coral #ff9270.
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);  // Paper #f5f2ea.
-    colors[ImGuiCol_ChildBg] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);   // Page #fdfbf6.
-    colors[ImGuiCol_Text] = ImVec4(0.165f, 0.153f, 0.133f, 1.00f);      // Ink #2a2722.
-    colors[ImGuiCol_Border] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);    // Chip edge #c9c2b2.
-    colors[ImGuiCol_FrameBg] = ImVec4(0.918f, 0.898f, 0.847f, 1.00f);   // Field #eae5d8.
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.878f, 0.851f, 0.784f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.839f, 0.804f, 0.722f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);  // Quiet chip.
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.941f, 0.922f, 0.867f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.890f, 0.863f, 0.788f, 1.00f);
-    colors[ImGuiCol_CheckMark] = ImVec4(0.169f, 0.290f, 0.549f, 1.00f);  // Blue ink #2b4a8c.
-    colors[ImGuiCol_Separator] = ImVec4(0.867f, 0.839f, 0.776f, 1.00f);  // Rule #ddd6c6.
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.702f, 0.671f, 0.592f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.612f, 0.576f, 0.490f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.071f, 0.200f, 0.227f, 1.00f);  // Lagoon #12333a.
+    colors[ImGuiCol_ChildBg] = ImVec4(0.055f, 0.165f, 0.188f, 1.00f);   // Depth #0e2a30.
+    colors[ImGuiCol_Text] = ImVec4(0.949f, 0.984f, 0.973f, 1.00f);      // Near-white #f2fbf8.
+    colors[ImGuiCol_Border] = ImVec4(0.169f, 0.357f, 0.392f, 1.00f);    // Chip edge #2b5b64.
+    colors[ImGuiCol_FrameBg] = ImVec4(0.102f, 0.275f, 0.314f, 1.00f);   // Field #1a4650.
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.129f, 0.333f, 0.376f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.157f, 0.388f, 0.435f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.102f, 0.275f, 0.314f, 1.00f);  // Quiet chip #1a4650.
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.129f, 0.333f, 0.376f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.157f, 0.388f, 0.435f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.373f, 0.831f, 0.753f, 1.00f);  // Aqua #5fd4c0.
+    colors[ImGuiCol_Separator] = ImVec4(0.133f, 0.314f, 0.353f, 1.00f);  // Rule #22505a.
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.071f, 0.200f, 0.227f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.169f, 0.357f, 0.392f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.227f, 0.439f, 0.482f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.278f, 0.510f, 0.557f, 1.00f);
     // Replace ImGui's 13px bitmap default with a larger, softer system font.
     // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
     // neither loads (non-standard Windows install), scale the bitmap default
@@ -325,6 +339,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
         return 1;
     }
+    applyDarkTitleBar(hwnd);
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
 
@@ -336,10 +351,10 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 
     // The two voices are the two inks of the paper theme: You writes in
     // blue ink, Others in red ink, both on the bright page panel.
-    const ImVec4 micColor(0.169f, 0.290f, 0.549f, 1.0f);  // Blue ink #2b4a8c - You.
-    const ImVec4 tabColor(0.659f, 0.251f, 0.173f, 1.0f);  // Red ink #a8402c - Others.
-    const ImVec4 dimColor(0.541f, 0.518f, 0.467f, 1.0f);  // Faded ink #8a8477.
-    const ImVec4 errColor(0.761f, 0.169f, 0.169f, 1.0f);  // Alarm red, legible on paper.
+    const ImVec4 micColor(0.373f, 0.831f, 0.753f, 1.0f);  // Aqua #5fd4c0 - You.
+    const ImVec4 tabColor(1.000f, 0.573f, 0.439f, 1.0f);  // Coral #ff9270 - Others.
+    const ImVec4 dimColor(0.471f, 0.635f, 0.624f, 1.0f);  // Sea mist #78a29f.
+    const ImVec4 errColor(0.949f, 0.333f, 0.333f, 1.0f);  // Alarm red, legible on teal.
     bool autoscroll = true;
     std::string saveStatus;        // Empty when nothing to report.
     double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after.
@@ -505,7 +520,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.961f, 0.949f, 0.918f, 1.0f};  // Match WindowBg paper.
+        const float clear[4] = {0.071f, 0.200f, 0.227f, 1.0f};  // Match WindowBg lagoon.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -542,6 +557,7 @@ bool runSetupUi(Config& cfg)
         ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
         return false;
     }
+    applyDarkTitleBar(hwnd);
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
 
@@ -551,8 +567,8 @@ bool runSetupUi(Config& cfg)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 dimColor(0.541f, 0.518f, 0.467f, 1.0f);   // Faded ink #8a8477.
-    const ImVec4 warnColor(0.671f, 0.404f, 0.129f, 1.0f);  // Amber ink, legible on paper.
+    const ImVec4 dimColor(0.471f, 0.635f, 0.624f, 1.0f);   // Sea mist #78a29f.
+    const ImVec4 warnColor(0.910f, 0.706f, 0.353f, 1.0f);  // Amber, legible on teal.
     // Captions must wrap at the window edge (TextColored clips instead), so
     // every note below goes through this helper.
     const auto colorWrapped = [](const ImVec4& color, const char* text) {
@@ -677,7 +693,7 @@ bool runSetupUi(Config& cfg)
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.961f, 0.949f, 0.918f, 1.0f};  // Match WindowBg paper.
+        const float clear[4] = {0.071f, 0.200f, 0.227f, 1.0f};  // Match WindowBg lagoon.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
