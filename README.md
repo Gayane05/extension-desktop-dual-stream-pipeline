@@ -197,6 +197,12 @@ overridden, the app looks for `models/` next to the exe and up to two parent lev
 (so `desktop\models` is found from `desktop\build\Release`). A console window opens
 alongside the UI — that is expected (the same binary serves `--headless` runs).
 
+**Saving.** Transcript lines carry meeting-relative timestamps (`[03:12]`, counted from
+the session's first words). **Save transcript** opens the standard Save As dialog and
+exports the chosen format: plain text (`.txt`), SubRip subtitles (`.srt`), or WebVTT
+(`.vtt`) — the subtitle formats turn a transcribed meeting into captions you can replay
+over a recording.
+
 **Settings.** The Settings page opens automatically on the very first launch; pick how
 speech-to-text should run — local sherpa on GPU (CUDA), local sherpa on CPU, local
 Parakeet, or the Deepgram cloud API. The choice is saved to `settings.json` next to the

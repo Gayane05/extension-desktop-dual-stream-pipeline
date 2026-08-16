@@ -13,8 +13,10 @@
 #include <shobjidl.h>
 #include <tchar.h>
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 #include "app/config.h"
@@ -139,8 +141,9 @@ std::string showSaveTranscriptDialog(HWND owner)
                                      IID_PPV_ARGS(&dialog))))
     {
         const COMDLG_FILTERSPEC fileTypes[] = {{L"Text file (*.txt)", L"*.txt"},
-                                               {L"All files (*.*)", L"*.*"}};
-        dialog->SetFileTypes(2, fileTypes);
+                                               {L"SubRip subtitles (*.srt)", L"*.srt"},
+                                               {L"WebVTT subtitles (*.vtt)", L"*.vtt"}};
+        dialog->SetFileTypes(3, fileTypes);
         dialog->SetDefaultExtension(L"txt");
         dialog->SetFileName(L"transcript.txt");
         dialog->SetTitle(L"Save transcript");
@@ -404,9 +407,30 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
             if (!savePath.empty())
             {
                 // Snapshot the transcript AFTER the dialog closes so lines
-                // transcribed while it was open still make the file.
+                // transcribed while it was open still make the file. The
+                // chosen format rides on the extension: the shell rewrites
+                // it when the user switches the dialog's filter type.
+                std::string extension = std::filesystem::path(savePath).extension().string();
+                for (char& extensionChar : extension)
+                {
+                    extensionChar =
+                        static_cast<char>(std::tolower(static_cast<unsigned char>(extensionChar)));
+                }
+                std::string transcriptText;
+                if (extension == ".srt")
+                {
+                    transcriptText = model.toSrt();
+                }
+                else if (extension == ".vtt")
+                {
+                    transcriptText = model.toVtt();
+                }
+                else
+                {
+                    transcriptText = model.toText();
+                }
                 std::string err;
-                if (saveTranscriptFile(savePath, model.toText(), err))
+                if (saveTranscriptFile(savePath, transcriptText, err))
                 {
                     saveStatus = "saved " + savePath;
                 }
@@ -449,9 +473,15 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
 
         // --- transcript ---
         ImGui::BeginChild("transcript", ImVec2(0, 0), 0, ImGuiWindowFlags_HorizontalScrollbar);
+        const double baseTsMs = model.baseTsMs();
         for (const auto& utterance : model.snapshot())
         {
             const bool mic = utterance.stream == StreamId::Mic;
+            // The timestamp is quiet metadata, so it takes the faded ink
+            // rather than a lane color.
+            const std::string relativeTimestamp = formatRelativeTimestamp(utterance.tsMs, baseTsMs);
+            ImGui::TextColored(dimColor, "%s", relativeTimestamp.c_str());
+            ImGui::SameLine();
             ImGui::TextColored(mic ? micColor : tabColor, mic ? "You:" : "Others:");
             ImGui::SameLine();
             if (utterance.isFinal)

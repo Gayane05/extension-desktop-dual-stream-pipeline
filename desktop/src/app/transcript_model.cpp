@@ -19,6 +19,12 @@ namespace dsp
 void TranscriptModel::apply(const TranscriptEvent& ev)
 {
     std::lock_guard lk(mu_);
+    // Interims count toward the baseline too: the session's clock starts at
+    // the first words, not at the first completed sentence.
+    if (firstTsMs_ < 0.0 || ev.tsMs < firstTsMs_)
+    {
+        firstTsMs_ = ev.tsMs;
+    }
     auto& pending = pending_[static_cast<int>(ev.stream)];
     if (!ev.isFinal)
     {
@@ -61,7 +67,52 @@ void TranscriptModel::clear()
     finals_.clear();
     pending_[0].reset();
     pending_[1].reset();
+    firstTsMs_ = -1.0;  // The next event starts a fresh session clock.
 }
+
+double TranscriptModel::baseTsMs() const
+{
+    std::lock_guard lk(mu_);
+    return firstTsMs_ < 0.0 ? 0.0 : firstTsMs_;
+}
+
+std::string formatRelativeTimestamp(double tsMs, double baseTsMs)
+{
+    const double deltaMs = tsMs - baseTsMs;
+    const auto totalSec = deltaMs > 0.0 ? static_cast<long long>(deltaMs / 1000.0) : 0;
+    const long long hours = totalSec / 3600;
+    char buffer[24];
+    if (hours > 0)
+    {
+        std::snprintf(buffer, sizeof(buffer), "%lld:%02lld:%02lld", hours, (totalSec / 60) % 60,
+                      totalSec % 60);
+    }
+    else
+    {
+        std::snprintf(buffer, sizeof(buffer), "%02lld:%02lld", totalSec / 60, totalSec % 60);
+    }
+    return buffer;
+}
+
+namespace
+{
+
+// A subtitle cue's timing line uses "HH:MM:SS<sep>mmm"; SubRip separates
+// milliseconds with a comma, WebVTT with a period.
+std::string formatCueTime(double deltaMs, char millisSeparator)
+{
+    const auto totalMs = deltaMs > 0.0 ? static_cast<long long>(deltaMs) : 0;
+    char buffer[24];
+    std::snprintf(buffer, sizeof(buffer), "%02lld:%02lld:%02lld%c%03lld", totalMs / 3600000,
+                  (totalMs / 60000) % 60, (totalMs / 1000) % 60, millisSeparator, totalMs % 1000);
+    return buffer;
+}
+
+// How long the last cue (and a cue whose successor starts no later than it
+// does, e.g. fully overlapping speech) stays on screen.
+constexpr double kFallbackCueDurationMs = 3000.0;
+
+}  // namespace
 
 std::string TranscriptModel::toText() const
 {
@@ -69,12 +120,51 @@ std::string TranscriptModel::toText() const
     std::string out;
     for (const auto& utterance : finals_)
     {
-        const auto totalSec = static_cast<long long>(utterance.tsMs / 1000.0);
-        char ts[16];
-        std::snprintf(ts, sizeof(ts), "%02lld:%02lld:%02lld", (totalSec / 3600) % 24,
-                      (totalSec / 60) % 60, totalSec % 60);
-        out += "[" + std::string(ts) + "] " +
+        out += "[" + formatRelativeTimestamp(utterance.tsMs, firstTsMs_) + "] " +
                (utterance.stream == StreamId::Mic ? "You: " : "Others: ") + utterance.text + "\n";
+    }
+    return out;
+}
+
+// Shared cue emission for both subtitle formats: finals_ is already sorted
+// by capture timestamp (see apply()), so cue N runs from its own start to
+// cue N+1's start; the last cue -- or one overtaken by an overlapping lane
+// -- gets a fixed on-screen duration instead.
+std::string TranscriptModel::toSrt() const
+{
+    std::lock_guard lk(mu_);
+    std::string out;
+    for (size_t i = 0; i < finals_.size(); ++i)
+    {
+        const double start = finals_[i].tsMs - firstTsMs_;
+        double end = start + kFallbackCueDurationMs;
+        if (i + 1 < finals_.size() && finals_[i + 1].tsMs > finals_[i].tsMs)
+        {
+            end = finals_[i + 1].tsMs - firstTsMs_;
+        }
+        out += std::to_string(i + 1) + "\n";
+        out += formatCueTime(start, ',') + " --> " + formatCueTime(end, ',') + "\n";
+        out += std::string(finals_[i].stream == StreamId::Mic ? "[You] " : "[Others] ") +
+               finals_[i].text + "\n\n";
+    }
+    return out;
+}
+
+std::string TranscriptModel::toVtt() const
+{
+    std::lock_guard lk(mu_);
+    std::string out = "WEBVTT\n\n";
+    for (size_t i = 0; i < finals_.size(); ++i)
+    {
+        const double start = finals_[i].tsMs - firstTsMs_;
+        double end = start + kFallbackCueDurationMs;
+        if (i + 1 < finals_.size() && finals_[i + 1].tsMs > finals_[i].tsMs)
+        {
+            end = finals_[i + 1].tsMs - firstTsMs_;
+        }
+        out += formatCueTime(start, '.') + " --> " + formatCueTime(end, '.') + "\n";
+        out += std::string(finals_[i].stream == StreamId::Mic ? "[You] " : "[Others] ") +
+               finals_[i].text + "\n\n";
     }
     return out;
 }

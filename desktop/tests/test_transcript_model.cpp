@@ -65,16 +65,67 @@ TEST(TranscriptModel, EmptyFinalIgnored)
     EXPECT_TRUE(model.snapshot().empty());
 }
 
-TEST(TranscriptModel, ToTextFormatsFinalsOnly)
+TEST(TranscriptModel, ToTextFormatsFinalsOnlyRelativeToSessionStart)
 {
     TranscriptModel model;
-    // 1h 2m 3s = 3723000 ms; 1h 2m 4s = 3724000 ms.
-    model.apply({StreamId::Mic, "hello there", true, 3723000.0});
-    model.apply({StreamId::Tab, "hi yourself", true, 3724000.0});
-    model.apply({StreamId::Mic, "pending interim", false, 3725000.0});  // Must NOT appear.
+    // The absolute capture clock (here starting at 5000000 ms) must not leak
+    // into the output: timestamps read relative to the session's first event.
+    model.apply({StreamId::Mic, "hello there", true, 5000000.0});
+    model.apply({StreamId::Tab, "hi yourself", true, 5004000.0});
+    model.apply({StreamId::Mic, "pending interim", false, 5005000.0});  // Must NOT appear.
     EXPECT_EQ(model.toText(),
-              "[01:02:03] You: hello there\n"
-              "[01:02:04] Others: hi yourself\n");
+              "[00:00] You: hello there\n"
+              "[00:04] Others: hi yourself\n");
+}
+
+TEST(TranscriptModel, FormatRelativeTimestampRollsToHours)
+{
+    EXPECT_EQ(formatRelativeTimestamp(1000.0, 1000.0), "00:00");
+    EXPECT_EQ(formatRelativeTimestamp(193000.0, 1000.0), "03:12");
+    // 1h 2m 3s past the baseline switches to the h:mm:ss form.
+    EXPECT_EQ(formatRelativeTimestamp(3723000.0, 0.0), "1:02:03");
+    // A timestamp before the baseline clamps to zero instead of underflowing.
+    EXPECT_EQ(formatRelativeTimestamp(500.0, 1000.0), "00:00");
+}
+
+TEST(TranscriptModel, BaselineComesFromEarliestEventIncludingInterims)
+{
+    TranscriptModel model;
+    EXPECT_DOUBLE_EQ(model.baseTsMs(), 0.0);                       // No events yet.
+    model.apply({StreamId::Mic, "still talking", false, 7000.0});  // Interim first.
+    model.apply({StreamId::Mic, "still talking now", true, 7000.0});
+    model.apply({StreamId::Tab, "reply", true, 9000.0});
+    EXPECT_DOUBLE_EQ(model.baseTsMs(), 7000.0);
+    model.clear();
+    EXPECT_DOUBLE_EQ(model.baseTsMs(), 0.0);  // Clear starts a fresh session.
+}
+
+TEST(TranscriptModel, ToSrtEmitsNumberedCuesEndingAtTheNextCue)
+{
+    TranscriptModel model;
+    model.apply({StreamId::Mic, "hello everyone", true, 10000.0});
+    model.apply({StreamId::Tab, "yes we hear you", true, 14300.0});
+    EXPECT_EQ(model.toSrt(),
+              "1\n"
+              "00:00:00,000 --> 00:00:04,300\n"
+              "[You] hello everyone\n"
+              "\n"
+              "2\n"
+              "00:00:04,300 --> 00:00:07,300\n"  // Last cue: fixed 3 s duration.
+              "[Others] yes we hear you\n"
+              "\n");
+}
+
+TEST(TranscriptModel, ToVttUsesWebVttHeaderAndDotMilliseconds)
+{
+    TranscriptModel model;
+    model.apply({StreamId::Tab, "welcome", true, 2000.0});
+    EXPECT_EQ(model.toVtt(),
+              "WEBVTT\n"
+              "\n"
+              "00:00:00.000 --> 00:00:03.000\n"
+              "[Others] welcome\n"
+              "\n");
 }
 
 TEST(TranscriptModel, ConcurrentApplyAndSnapshotSmoke)
