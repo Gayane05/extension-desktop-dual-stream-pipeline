@@ -32,6 +32,38 @@ TEST(Config, Defaults)
     EXPECT_FALSE(config->engineOrProviderExplicit);
 }
 
+TEST(Config, HelpFlagShortCircuitsParsing)
+{
+    std::string error;
+    // Everything after --help is ignored, even an otherwise-invalid flag.
+    const char* argvHelp[] = {"transcriber", "--help", "--bogus"};
+    auto config = parseArgs(3, argvHelp, error);
+    ASSERT_TRUE(config.has_value());
+    EXPECT_TRUE(config->showHelp);
+    const char* argvShort[] = {"transcriber", "-h"};
+    auto configShort = parseArgs(2, argvShort, error);
+    ASSERT_TRUE(configShort.has_value());
+    EXPECT_TRUE(configShort->showHelp);
+}
+
+TEST(Config, UnknownFlagErrorPointsToHelp)
+{
+    std::string error;
+    const char* argvBad[] = {"transcriber", "--bogus"};
+    EXPECT_FALSE(parseArgs(2, argvBad, error).has_value());
+    EXPECT_NE(error.find("--help"), std::string::npos);
+}
+
+TEST(Config, UsageTextNamesEveryFlag)
+{
+    const std::string usage = usageText();
+    for (const char* flag : {"--engine", "--provider", "--port", "--model-dir", "--decoding",
+                             "--endpoint-silence", "--headless", "--duration", "--help"})
+    {
+        EXPECT_NE(usage.find(flag), std::string::npos) << flag;
+    }
+}
+
 TEST(Config, SettingsFileRoundTrip)
 {
     Config out;

@@ -189,6 +189,7 @@ Flags:
 | `--endpoint-silence` | 0.2–5.0 s | `0.8` | Pause length after speech that finalizes an utterance (sherpa engine). Smaller = more sentence-like splits |
 | `--headless` | (flag) | off | No window; runs the pipeline and prints transcript JSONL to stdout (finals) / stderr (interims) |
 | `--duration` | seconds | `0` (run until Ctrl+C / window closed) | Auto-stop after N seconds (headless mode) |
+| `--help`, `-h` | (flag) | — | Print this flag summary and exit |
 
 Example: `.\build\Release\transcriber.exe --port 9000 --model-dir C:\models\zipformer`
 

@@ -52,6 +52,13 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
     {
         std::string_view flag = argv[i];
         std::string flagValue;
+        if (flag == "--help" || flag == "-h")
+        {
+            // Short-circuit: the caller prints usageText() and exits, so
+            // nothing else on the command line needs to be valid.
+            config.showHelp = true;
+            return config;
+        }
         if (flag == "--engine")
         {
             if (!takeValue(argc, argv, i, flagValue, error))
@@ -161,11 +168,41 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
         }
         else
         {
-            error = "unknown flag: " + std::string(flag);
+            error = "unknown flag: " + std::string(flag) + " -- see --help";
             return std::nullopt;
         }
     }
     return config;
+}
+
+std::string usageText()
+{
+    return "Dual-Stream Transcriber -- live two-lane meeting transcription\n"
+           "\n"
+           "Usage: transcriber.exe [options]\n"
+           "\n"
+           "Options:\n"
+           "  --engine sherpa|deepgram|parakeet   Speech-to-text backend (default: deepgram).\n"
+           "                                      sherpa = local streaming model, parakeet =\n"
+           "                                      local highest accuracy, deepgram = cloud API.\n"
+           "  --provider cpu|cuda|tensorrt        Local inference device (default: cpu);\n"
+           "                                      falls back to cpu if the GPU runtime is\n"
+           "                                      missing. Ignored by deepgram.\n"
+           "  --port N                            WebSocket port the extension connects to\n"
+           "                                      (default: 8765).\n"
+           "  --model-dir PATH                    Directory holding the local model files\n"
+           "                                      (default: models, searched next to the exe).\n"
+           "  --decoding beam|greedy              sherpa decoding method (default: beam).\n"
+           "  --endpoint-silence SEC              Pause length that ends a sentence, 0.2-5.0\n"
+           "                                      (default: 0.8).\n"
+           "  --headless                          No window; print transcript JSONL to stdout\n"
+           "                                      (finals) and stderr (interims).\n"
+           "  --duration SEC                      Auto-stop after N seconds (headless runs).\n"
+           "  --help, -h                          Show this help and exit.\n"
+           "\n"
+           "The GUI saves its Settings-page choices to settings.json next to the exe.\n"
+           "Precedence: built-in defaults < settings.json < command-line flags.\n"
+           "The Deepgram API key comes from the Settings page or DEEPGRAM_API_KEY.\n";
 }
 
 // Only engine + provider are persisted: they are the "how do you want to

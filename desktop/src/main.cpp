@@ -172,6 +172,11 @@ int main(int argc, char** argv)
         std::fprintf(stderr, "error: %s\n", err.c_str());
         return 2;
     }
+    if (cfg->showHelp)
+    {
+        std::fprintf(stdout, "%s", dsp::usageText().c_str());
+        return 0;
+    }
 
     resolveDefaultModelDir(*cfg);
 

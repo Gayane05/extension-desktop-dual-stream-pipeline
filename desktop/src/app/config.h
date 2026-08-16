@@ -35,9 +35,16 @@ struct Config
     // Settings page opens at every launch; when false, it opens only on the
     // very first run (no settings file yet) or from the Settings button.
     bool askOnStartup = false;
+    // Set by --help/-h. The caller prints usageText() and exits instead of
+    // starting anything; parsing stops at the flag, so later arguments are
+    // neither validated nor applied. Not persisted.
+    bool showHelp = false;
 };
 
 std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error);
+// The --help text: usage line plus every flag with its default. Lives here
+// (not in main.cpp) so tests can assert it stays in sync with the flag set.
+std::string usageText();
 // Same, but starts from `base` instead of built-in defaults, so values loaded
 // from the settings file survive unless a CLI flag overrides them.
 std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& error,
