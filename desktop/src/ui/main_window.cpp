@@ -1,11 +1,12 @@
 // desktop/src/ui/main_window.cpp
 //
-// Win32 + Direct3D 11 + Dear ImGui shell for the desktop app's window. Reads
-// state produced elsewhere (Pipeline's connection/stream status,
-// TranscriptModel's snapshot) and renders it every frame; the only thing it
-// writes back is user intent (Clear/Save button clicks, the pushStatus()
-// heartbeat). Entered once from main() via runUi() and run until the window
-// is closed. Not built/used in --headless mode.
+// Win32 + Direct3D 11 + Dear ImGui shell for the desktop app's window.
+// runUi() OWNS the engine + pipeline for the whole GUI session: picking a
+// new mode in the Settings modal swaps them in place on a worker thread
+// (built via the engineFactory main() provides), so the window -- and the
+// accumulated transcript -- survives engine changes. Entered once from
+// main() and run until the window is closed; everything is stopped before
+// it returns. Not built/used in --headless mode.
 // windows.h (pulled in by d3d11.h) defines min/max macros that break
 // std::min unless suppressed.
 #define NOMINMAX
@@ -18,11 +19,15 @@
 #include <tchar.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
+#include <memory>
 #include <string>
+#include <thread>
 
 #include "app/config.h"
 #include "app/pipeline.h"
@@ -505,7 +510,10 @@ bool drawSettingsContent(Config& cfg, char* keyBuf, size_t keyBufSize, bool& sho
 
 }  // namespace
 
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config& cfg)
+int runUi(std::unique_ptr<ISttEngine> engine, std::unique_ptr<Pipeline> pipeline,
+          TranscriptModel& model, Config& cfg,
+          const std::function<std::unique_ptr<ISttEngine>(const Config&)>& engineFactory,
+          const std::string& settingsPath)
 {
     WNDCLASSEXW windowClass = {sizeof(windowClass),         CS_CLASSDC, wndProc, 0,       0,
                                ::GetModuleHandleW(nullptr), nullptr,    nullptr, nullptr, nullptr,
@@ -540,14 +548,92 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
     std::string saveStatus;        // Empty when nothing to report.
     double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after.
     bool done = false;
-    int exitCode = 0;  // kRunUiRestartApply when a mode was picked in the Settings modal.
     // Settings modal state. The modal edits a DRAFT copy of cfg so closing
     // it without picking a card changes nothing; picking a card copies the
-    // draft back and asks main() to rebuild the engine.
+    // draft back and swaps the engine in place.
     Config settingsDraft;
     char settingsKeyBuf[kApiKeyBufferSize] = {};
     bool settingsShowKey = false;
     const bool envKeyPresent = std::getenv("DEEPGRAM_API_KEY") != nullptr;
+
+    // --- In-place engine swap machinery. Picking a mode in the Settings
+    // modal must NOT close this window, so the old engine/pipeline are moved
+    // onto a worker thread that tears them down and builds the new pair
+    // (local model loading takes seconds), while the render loop keeps
+    // drawing with pipeline/engine == null and a "switching..." status. The
+    // worker publishes into swapResult and flips swapState LAST; the render
+    // thread adopts the result on the next frame. All UI reads of
+    // pipeline/engine below are null-guarded for the swap window.
+    enum SwapState : int
+    {
+        kSwapIdle = 0,
+        kSwapWorking = 1,
+        kSwapReady = 2,
+        kSwapFailed = 3,
+    };
+    struct SwapResult
+    {
+        std::unique_ptr<ISttEngine> engine;
+        std::unique_ptr<Pipeline> pipeline;
+        std::string error;
+    };
+    std::atomic<int> swapState{kSwapIdle};
+    SwapResult swapResult;
+    std::thread swapThread;
+    std::string swapTargetLabel;
+    std::string engineError;  // Non-empty while the app has no running engine.
+
+    const auto beginEngineSwap = [&]() {
+        // Only one swap can be in flight (the gear is disabled while
+        // working), but a previous FAILED swap's thread may still need its
+        // join before the next one starts.
+        if (swapThread.joinable())
+        {
+            swapThread.join();
+        }
+        swapTargetLabel = currentModeLabel(cfg);
+        engineError.clear();
+        swapState.store(kSwapWorking);
+        swapThread =
+            std::thread([oldEngine = std::move(engine), oldPipeline = std::move(pipeline),
+                         cfgCopy = cfg, &engineFactory, &swapResult, &swapState]() mutable {
+                // Stop consumers before their engine, mirroring main()'s
+                // shutdown order; both may be null after an earlier failure.
+                if (oldPipeline)
+                {
+                    oldPipeline->stop();
+                }
+                if (oldEngine)
+                {
+                    oldEngine->stop();
+                }
+                oldPipeline.reset();
+                oldEngine.reset();
+                std::string error;
+                auto newEngine = engineFactory(cfgCopy);
+                if (!newEngine->start(error))
+                {
+                    swapResult.error = "engine error: " + error;
+                    swapState.store(kSwapFailed);
+                    return;
+                }
+                auto newPipeline = std::make_unique<Pipeline>(cfgCopy, *newEngine);
+                if (!newPipeline->start(error))
+                {
+                    newEngine->stop();
+                    swapResult.error = "server error: " + error;
+                    swapState.store(kSwapFailed);
+                    return;
+                }
+                std::fprintf(stderr, "listening on ws://127.0.0.1:%d (engine=%s provider=%s)\n",
+                             cfgCopy.port, newEngine->name().c_str(),
+                             newEngine->effectiveProvider().c_str());
+                swapResult.engine = std::move(newEngine);
+                swapResult.pipeline = std::move(newPipeline);
+                swapState.store(kSwapReady);
+            });
+    };
+    bool reopenSettingsForError = false;
     // Status otherwise only pushes to the extension on hello/clientGone,
     // which leaves the popup showing stale (or initial "idle/idle") state
     // for the rest of a session. Push ~1x/second from the render loop too.
@@ -577,10 +663,32 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        const double now = ImGui::GetTime();
-        if (now - lastStatusPush >= kStatusPushIntervalSec)
+        // Adopt (or fail out of) a finished engine swap before any widget
+        // reads pipeline/engine this frame.
+        const int currentSwapState = swapState.load();
+        if (currentSwapState == kSwapReady)
         {
-            pipeline.pushStatus();
+            swapThread.join();
+            engine = std::move(swapResult.engine);
+            pipeline = std::move(swapResult.pipeline);
+            swapState.store(kSwapIdle);
+        }
+        else if (currentSwapState == kSwapFailed)
+        {
+            swapThread.join();
+            engineError = swapResult.error;
+            swapState.store(kSwapIdle);
+            // Give the user a way forward immediately: the Settings modal
+            // reopens over the (engine-less) window so they can pick a
+            // working mode.
+            reopenSettingsForError = true;
+        }
+        const bool swapping = swapState.load() == kSwapWorking;
+
+        const double now = ImGui::GetTime();
+        if (pipeline && now - lastStatusPush >= kStatusPushIntervalSec)
+        {
+            pipeline->pushStatus();
             lastStatusPush = now;
         }
 
@@ -590,17 +698,30 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
         ImGui::Begin("main", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
 
         // --- status bar (top) ---
-        ImGui::Text("engine: %s (%s)%s | client: %s | port: %d", engine.name().c_str(),
-                    engine.effectiveProvider().c_str(), g_usingWarp ? " | WARP render" : "",
-                    pipeline.clientConnected() ? "connected" : "waiting...", cfg.port);
-        ImGui::SameLine();
-        ImGui::TextColored(dimColor, "| mic:%s tab:%s | dropped: %llu/%llu | audio: %.1fs/%.1fs",
-                           pipeline.streamState(StreamId::Mic).c_str(),
-                           pipeline.streamState(StreamId::Tab).c_str(),
-                           static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Mic)),
-                           static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Tab)),
-                           pipeline.processedAudioSec(StreamId::Mic),
-                           pipeline.processedAudioSec(StreamId::Tab));
+        if (pipeline && engine)
+        {
+            ImGui::Text("engine: %s (%s)%s | client: %s | port: %d", engine->name().c_str(),
+                        engine->effectiveProvider().c_str(), g_usingWarp ? " | WARP render" : "",
+                        pipeline->clientConnected() ? "connected" : "waiting...", cfg.port);
+            ImGui::SameLine();
+            ImGui::TextColored(
+                dimColor, "| mic:%s tab:%s | dropped: %llu/%llu | audio: %.1fs/%.1fs",
+                pipeline->streamState(StreamId::Mic).c_str(),
+                pipeline->streamState(StreamId::Tab).c_str(),
+                static_cast<unsigned long long>(pipeline->droppedChunks(StreamId::Mic)),
+                static_cast<unsigned long long>(pipeline->droppedChunks(StreamId::Tab)),
+                pipeline->processedAudioSec(StreamId::Mic),
+                pipeline->processedAudioSec(StreamId::Tab));
+        }
+        else if (swapping)
+        {
+            ImGui::TextColored(kSettingsWarnColor, "switching to %s ...", swapTargetLabel.c_str());
+        }
+        else
+        {
+            ImGui::TextColored(errColor, "%s -- pick another mode in Settings",
+                               engineError.c_str());
+        }
         if (ImGui::Button("Clear"))
         {
             model.clear();
@@ -663,11 +784,16 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
         ImGui::Checkbox("Autoscroll", &autoscroll);
         ImGui::SameLine();
         // Opens the Settings modal OVER this window (the transcript stays
-        // visible and live behind it); only actually picking a mode makes
-        // main() rebuild the engine. Gear icon when the system icon font is
-        // available, text label otherwise.
-        if (ImGui::Button(g_hasIconFont ? kIconSettings : "Settings"))
+        // visible and live behind it); picking a mode swaps the engine in
+        // place on a worker thread, so the window never closes. Disabled
+        // mid-swap: one swap at a time. Gear icon when the system icon font
+        // is available, text label otherwise.
+        ImGui::BeginDisabled(swapping);
+        const bool settingsClicked = ImGui::Button(g_hasIconFont ? kIconSettings : "Settings");
+        ImGui::EndDisabled();
+        if (settingsClicked || reopenSettingsForError)
         {
+            reopenSettingsForError = false;
             settingsDraft = cfg;
             std::snprintf(settingsKeyBuf, sizeof(settingsKeyBuf), "%s", cfg.deepgramKey.c_str());
             settingsShowKey = false;
@@ -695,8 +821,11 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
                                     settingsShowKey, envKeyPresent))
             {
                 cfg = settingsDraft;
-                exitCode = kRunUiRestartApply;
-                done = true;
+                if (!saveSettingsFile(settingsPath, cfg))
+                {
+                    std::fprintf(stderr, "warning: could not write %s\n", settingsPath.c_str());
+                }
+                beginEngineSwap();
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -744,6 +873,27 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
         g_swapChain->Present(1, 0);
     }
 
+    // The window is closing: finish any in-flight swap first (its objects
+    // become ours to stop), then shut the engine chain down in consumer ->
+    // producer order. runUi owns these lifetimes now, not main().
+    if (swapThread.joinable())
+    {
+        swapThread.join();
+    }
+    if (swapResult.pipeline)
+    {
+        pipeline = std::move(swapResult.pipeline);
+        engine = std::move(swapResult.engine);
+    }
+    if (pipeline)
+    {
+        pipeline->stop();
+    }
+    if (engine)
+    {
+        engine->stop();
+    }
+
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
@@ -751,7 +901,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
     drainThreadMessages();
-    return exitCode;
+    return 0;
 }
 
 // First-run / Settings mode chooser. Runs its own small window with the same

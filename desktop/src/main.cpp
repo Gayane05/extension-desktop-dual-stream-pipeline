@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <thread>
 
@@ -32,11 +33,15 @@
 
 namespace dsp
 {
-// Both implemented in desktop/src/ui/main_window.cpp. runUi returns
-// kRunUiRestartApply when a new mode was picked in its Settings modal
-// (cfg already updated), or kRunUiRestartSetup to reopen the standalone
-// chooser (engine-failure recovery).
-int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, Config& cfg);
+// Both implemented in desktop/src/ui/main_window.cpp. runUi takes ownership
+// of the started engine + pipeline and swaps them IN PLACE (via
+// engineFactory) when the user picks a new mode in its Settings modal -- the
+// window never closes for a mode change. Everything is stopped before runUi
+// returns.
+int runUi(std::unique_ptr<ISttEngine> engine, std::unique_ptr<Pipeline> pipeline,
+          TranscriptModel& model, Config& cfg,
+          const std::function<std::unique_ptr<ISttEngine>(const Config&)>& engineFactory,
+          const std::string& settingsPath);
 bool runSetupUi(Config& cfg);
 }  // namespace dsp
 
@@ -191,10 +196,9 @@ int main(int argc, char** argv)
     bool showSetup =
         !cfg->headless && !cfg->engineOrProviderExplicit && (!haveSettings || cfg->askOnStartup);
 
-    // Each loop iteration is one full engine lifetime. Picking a new mode in
-    // the in-window Settings modal exits runUi with kRunUiRestartApply and
-    // we rebuild engine + pipeline with the updated cfg; kRunUiRestartSetup
-    // (engine-failure recovery) re-runs the standalone chooser first.
+    // This loop only handles STARTUP failures (engine cannot start -> show
+    // the standalone chooser and retry). Mode changes during a GUI session
+    // are swapped in place inside runUi and never come back here.
     for (;;)
     {
         if (showSetup)
@@ -211,15 +215,17 @@ int main(int argc, char** argv)
         }
 
         dsp::TranscriptModel model;
-        auto engine = makeEngine(*cfg, [&](const dsp::TranscriptEvent& transcriptEvent) {
-            model.apply(transcriptEvent);
-            if (cfg->headless)
-            {
-                FILE* out = transcriptEvent.isFinal ? stdout : stderr;
-                std::fprintf(out, "%s\n", buildTranscriptLine(transcriptEvent).c_str());
-                std::fflush(out);
-            }
-        });
+        const dsp::TranscriptCallback transcriptCallback =
+            [&](const dsp::TranscriptEvent& transcriptEvent) {
+                model.apply(transcriptEvent);
+                if (cfg->headless)
+                {
+                    FILE* out = transcriptEvent.isFinal ? stdout : stderr;
+                    std::fprintf(out, "%s\n", buildTranscriptLine(transcriptEvent).c_str());
+                    std::fflush(out);
+                }
+            };
+        auto engine = makeEngine(*cfg, transcriptCallback);
         if (!engine->start(err))
         {
             std::fprintf(stderr, "engine error: %s\n", err.c_str());
@@ -247,8 +253,8 @@ int main(int argc, char** argv)
             return 3;
         }
 
-        dsp::Pipeline pipeline(*cfg, *engine);
-        if (!pipeline.start(err))
+        auto pipeline = std::make_unique<dsp::Pipeline>(*cfg, *engine);
+        if (!pipeline->start(err))
         {
             std::fprintf(stderr, "server error: %s\n", err.c_str());
             return 4;
@@ -274,32 +280,21 @@ int main(int argc, char** argv)
                 std::this_thread::sleep_for(std::chrono::milliseconds(kHeadlessTickMs));
                 if (++tick % kStatusPushEveryTicks == 0)
                 {
-                    pipeline.pushStatus();
+                    pipeline->pushStatus();
                 }
             }
-            pipeline.stop();
+            pipeline->stop();
             engine->stop();
             return 0;
         }
 
-        const int uiExitCode = dsp::runUi(pipeline, model, *engine, *cfg);
-        pipeline.stop();
-        engine->stop();
-        if (uiExitCode == dsp::kRunUiRestartApply)
-        {
-            // A new mode was picked in the in-window Settings modal; cfg is
-            // already updated, so persist it and rebuild the engine directly.
-            if (!dsp::saveSettingsFile(settingsPath, *cfg))
-            {
-                std::fprintf(stderr, "warning: could not write %s\n", settingsPath.c_str());
-            }
-            continue;
-        }
-        if (uiExitCode == dsp::kRunUiRestartSetup)
-        {
-            showSetup = true;
-            continue;
-        }
-        return uiExitCode;
+        // In-place engine swaps inside runUi build replacement engines with
+        // the same transcript callback, so swapped engines keep feeding the
+        // same model.
+        const auto engineFactory = [&](const dsp::Config& factoryCfg) {
+            return makeEngine(factoryCfg, transcriptCallback);
+        };
+        return dsp::runUi(std::move(engine), std::move(pipeline), model, *cfg, engineFactory,
+                          settingsPath);
     }
 }

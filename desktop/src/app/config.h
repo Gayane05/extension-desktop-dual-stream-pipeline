@@ -61,11 +61,4 @@ std::optional<Config> parseArgs(int argc, const char* const* argv, std::string& 
 bool loadSettingsFile(const std::string& path, Config& into);
 bool saveSettingsFile(const std::string& path, const Config& cfg);
 
-// runUi() exit code asking main() to reopen the standalone mode chooser and
-// rebuild the engine (used by the engine-failure recovery path).
-inline constexpr int kRunUiRestartSetup = 2;
-// runUi() exit code meaning the user already picked a new mode in the
-// in-window Settings modal: main() persists cfg and rebuilds the engine
-// directly, without showing the standalone chooser.
-inline constexpr int kRunUiRestartApply = 3;
 }  // namespace dsp
