@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <imgui_impl_dx11.h>
 #include <imgui_impl_win32.h>
+#include <shobjidl.h>
 #include <tchar.h>
 
 #include <cstdio>
@@ -118,6 +119,67 @@ void destroyDevice()
         g_device->Release();
         g_device = nullptr;
     }
+}
+
+// Shows the standard Windows Save As dialog (IFileSaveDialog) modally over
+// `owner` and returns the chosen path as UTF-8, or an empty string when the
+// user cancels (or the dialog cannot be created). Runs its own message loop
+// while open, so the ImGui frame underneath simply pauses -- transcription
+// threads keep running.
+std::string showSaveTranscriptDialog(HWND owner)
+{
+    std::wstring chosenPath;
+    // S_OK or S_FALSE (already initialized) both require the matching
+    // CoUninitialize; RPC_E_CHANGED_MODE (initialized with a different
+    // threading model elsewhere) must not be paired with one.
+    const HRESULT comInit =
+        ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    IFileSaveDialog* dialog = nullptr;
+    if (SUCCEEDED(::CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_INPROC_SERVER,
+                                     IID_PPV_ARGS(&dialog))))
+    {
+        const COMDLG_FILTERSPEC fileTypes[] = {{L"Text file (*.txt)", L"*.txt"},
+                                               {L"All files (*.*)", L"*.*"}};
+        dialog->SetFileTypes(2, fileTypes);
+        dialog->SetDefaultExtension(L"txt");
+        dialog->SetFileName(L"transcript.txt");
+        dialog->SetTitle(L"Save transcript");
+        // Show() returns ERROR_CANCELLED as an HRESULT when the user backs
+        // out; that path simply leaves chosenPath empty.
+        if (SUCCEEDED(dialog->Show(owner)))
+        {
+            IShellItem* resultItem = nullptr;
+            if (SUCCEEDED(dialog->GetResult(&resultItem)))
+            {
+                PWSTR filesystemPath = nullptr;
+                if (SUCCEEDED(resultItem->GetDisplayName(SIGDN_FILESYSPATH, &filesystemPath)))
+                {
+                    chosenPath = filesystemPath;
+                    ::CoTaskMemFree(filesystemPath);
+                }
+                resultItem->Release();
+            }
+        }
+        dialog->Release();
+    }
+    if (SUCCEEDED(comInit))
+    {
+        ::CoUninitialize();
+    }
+    if (chosenPath.empty())
+    {
+        return "";
+    }
+    const int utf8Len =
+        ::WideCharToMultiByte(CP_UTF8, 0, chosenPath.c_str(), static_cast<int>(chosenPath.size()),
+                              nullptr, 0, nullptr, nullptr);
+    std::string utf8Path(utf8Len > 0 ? static_cast<size_t>(utf8Len) : 0, '\0');
+    if (utf8Len > 0)
+    {
+        ::WideCharToMultiByte(CP_UTF8, 0, chosenPath.c_str(), static_cast<int>(chosenPath.size()),
+                              utf8Path.data(), utf8Len, nullptr, nullptr);
+    }
+    return utf8Path;
 }
 
 // DestroyWindow triggers WM_DESTROY -> PostQuitMessage, and that WM_QUIT sits
@@ -338,16 +400,22 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::SameLine();
         if (ImGui::Button("Save transcript"))
         {
-            std::string err;
-            if (saveTranscriptFile("transcript.txt", model.toText(), err))
+            const std::string savePath = showSaveTranscriptDialog(hwnd);
+            if (!savePath.empty())
             {
-                saveStatus = "saved transcript.txt";
+                // Snapshot the transcript AFTER the dialog closes so lines
+                // transcribed while it was open still make the file.
+                std::string err;
+                if (saveTranscriptFile(savePath, model.toText(), err))
+                {
+                    saveStatus = "saved " + savePath;
+                }
+                else
+                {
+                    saveStatus = "save failed: " + err;
+                }
+                saveStatusUntil = ImGui::GetTime() + kSaveStatusDisplaySec;
             }
-            else
-            {
-                saveStatus = "save failed: " + err;
-            }
-            saveStatusUntil = ImGui::GetTime() + kSaveStatusDisplaySec;
         }
         if (!saveStatus.empty())
         {
