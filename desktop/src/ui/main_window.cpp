@@ -44,7 +44,7 @@ constexpr int kMainWindowWidth = 900;
 constexpr int kMainWindowHeight = 640;
 // Setup/Settings chooser window client-area size, in pixels.
 constexpr int kSetupWindowWidth = 720;
-constexpr int kSetupWindowHeight = 650;
+constexpr int kSetupWindowHeight = 590;
 // Point size for the main UI text font.
 constexpr float kUiFontSize = 20.0f;
 // Point size for the merged Segoe MDL2 icon glyphs.
@@ -569,9 +569,6 @@ bool runSetupUi(Config& cfg)
         ImGui::Begin("setup", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
 
         ImGui::Text("How should speech-to-text run?");
-        colorWrapped(dimColor,
-                     "Your choice is saved and applied automatically on every start. "
-                     "Change it any time via the Settings button.");
         ImGui::Separator();
         ImGui::Spacing();
 
