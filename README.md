@@ -162,21 +162,25 @@ onnxruntime, etc.) staged automatically next to each executable by the CMake bui
 
 ### Desktop app
 
-Run from the `desktop/` directory (the default `--model-dir models` is relative to the
-current working directory). The default engine is **Deepgram**, which needs
-`DEEPGRAM_API_KEY` set (see [Deepgram backend](#deepgram-backend)) — pass
-`--engine sherpa` for the fully local, no-account path:
+The app runs **both ways** — pick whichever suits you:
 
-```powershell
-cd desktop
-.\build\Release\transcriber.exe --engine sherpa
-cd ..
-```
+- **Double-click** `desktop\build\Release\transcriber.exe` in Explorer. The very first
+  launch opens the Settings page to pick a mode; every later launch starts straight into
+  the saved choice. The `models/` directory is found automatically next to the exe (up to
+  two parent levels, so `desktop\models` is found from `desktop\build\Release`). A console
+  window opens alongside the UI — that is expected (the same binary serves `--headless`
+  runs).
+- **From a terminal**, with flags for scripted or tuned runs (table and examples below).
+  Run from the `desktop/` directory so the default `--model-dir models` resolves, or pass
+  `--model-dir` explicitly. The default engine is **Deepgram**, which needs an API key
+  (see [Deepgram backend](#deepgram-backend)) — pass `--engine sherpa` for the fully
+  local, no-account path.
 
-A window opens, listening on `ws://127.0.0.1:8765`. The status bar shows the active
-engine/provider, connection state, per-stream (mic/tab) status, and a dropped-chunk
-counter. Only one extension client is accepted at a time — a second connection's `hello` is
-rejected with an error and closed, so the first (active) client is never disturbed.
+Either way a window opens, listening on `ws://127.0.0.1:8765`. The status bar shows the
+active engine/provider, connection state, per-stream (mic/tab) status, dropped-chunk
+counters, and seconds of audio processed per lane. Only one extension client is accepted
+at a time — a second connection's `hello` is rejected with an error and closed, so the
+first (active) client is never disturbed.
 
 Flags:
 
@@ -193,12 +197,19 @@ Flags:
 | `--language` | BCP-47 code or `multi` | `multi` | Deepgram transcription language; `multi` = automatic multilingual transcription with code-switching (nova-3). Local engines are English-only and ignore it |
 | `--help`, `-h` | (flag) | — | Print this flag summary and exit |
 
-Example: `.\build\Release\transcriber.exe --port 9000 --model-dir C:\models\zipformer`
+Command-line examples (run from `desktop/`):
 
-Double-clicking `transcriber.exe` in Explorer also works: when `--model-dir` is not
-overridden, the app looks for `models/` next to the exe and up to two parent levels
-(so `desktop\models` is found from `desktop\build\Release`). A console window opens
-alongside the UI — that is expected (the same binary serves `--headless` runs).
+```powershell
+.\build\Release\transcriber.exe                                    # saved settings (Deepgram by default)
+.\build\Release\transcriber.exe --engine sherpa --provider cuda    # local streaming model on the GPU
+.\build\Release\transcriber.exe --engine parakeet                  # highest-accuracy local model
+.\build\Release\transcriber.exe --engine deepgram --language en    # cloud, pinned to one language
+.\build\Release\transcriber.exe --port 9100                        # non-default WebSocket port
+.\build\Release\transcriber.exe --engine sherpa --decoding greedy --endpoint-silence 0.5
+.\build\Release\transcriber.exe --model-dir C:\models\zipformer    # model directory elsewhere
+.\build\Release\transcriber.exe --headless --duration 40 --engine sherpa   # scripted run, JSONL to stdout
+.\build\Release\transcriber.exe --help                             # full flag reference
+```
 
 **Saving.** Transcript lines carry meeting-relative timestamps (`[03:12]`, counted from
 the session's first words). **Save transcript** opens the standard Save As dialog and
