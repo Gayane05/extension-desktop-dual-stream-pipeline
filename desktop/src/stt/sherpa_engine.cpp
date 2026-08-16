@@ -8,6 +8,7 @@
 
 #include <sherpa-onnx/c-api/c-api.h>
 
+#include <cstdio>
 #include <exception>
 #include <filesystem>
 #include <vector>
@@ -175,7 +176,19 @@ bool SherpaEngine::createRecognizer(const std::string& provider, std::string& er
     recognizerConfig.model_config.num_threads = 2;
     // modified_beam_search trades a little decode CPU for a meaningfully lower
     // word error rate vs greedy; decode cost is small next to the encoder.
-    const bool beam = opts_.decoding != "greedy";
+    bool beam = opts_.decoding != "greedy";
+    // NeMo streaming transducers (NVIDIA FastConformer exports) only support
+    // greedy decoding -- sherpa-onnx hard-exits the process on any other
+    // method. Their archives name the files plainly (encoder.onnx), unlike
+    // the zipformers' encoder-epoch-...-chunk-... names, so downgrade
+    // automatically instead of dying.
+    if (beam && fs::path(files.encoder).filename() == "encoder.onnx")
+    {
+        std::fprintf(stderr,
+                     "sherpa: NeMo-style model detected; beam decoding is unsupported for it, "
+                     "using greedy\n");
+        beam = false;
+    }
     recognizerConfig.decoding_method = beam ? "modified_beam_search" : "greedy_search";
     if (beam)
     {
