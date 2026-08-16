@@ -261,11 +261,29 @@ void applyThemeAndFont()
     ImGuiIO& io = ImGui::GetIO();
     const char* windir = std::getenv("WINDIR");
     const std::string fontBase = std::string(windir ? windir : "C:\\Windows") + "\\Fonts\\";
+    // The atlas must contain every script the multilingual Deepgram mode
+    // (language=multi) can emit, or those transcripts render as "?" boxes.
+    // Segoe UI itself covers Latin/Greek/Cyrillic; the builder result is
+    // static because the atlas keeps a pointer to the ranges, not a copy.
+    static ImVector<ImWchar> uiGlyphRanges;
+    if (uiGlyphRanges.empty())
+    {
+        ImFontGlyphRangesBuilder rangesBuilder;
+        rangesBuilder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        rangesBuilder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+        rangesBuilder.AddRanges(io.Fonts->GetGlyphRangesGreek());
+        // Latin Extended-A/B: the accented letters Spanish/French/German/
+        // Portuguese/Italian/Dutch transcripts use beyond Latin-1.
+        static const ImWchar kLatinExtended[] = {0x0100, 0x024F, 0};
+        rangesBuilder.AddRanges(kLatinExtended);
+        rangesBuilder.BuildRanges(&uiGlyphRanges);
+    }
     ImFont* uiFont = nullptr;
     for (const char* fontFile : {"SegUIVar.ttf", "segoeui.ttf"})
     {
         const std::string path = fontBase + fontFile;
-        uiFont = io.Fonts->AddFontFromFileTTF(path.c_str(), kUiFontSize);
+        uiFont =
+            io.Fonts->AddFontFromFileTTF(path.c_str(), kUiFontSize, nullptr, uiGlyphRanges.Data);
         if (uiFont)
         {
             break;
@@ -274,6 +292,27 @@ void applyThemeAndFont()
     if (!uiFont)
     {
         io.FontGlobalScale = 1.5f;
+    }
+    if (uiFont)
+    {
+        // Scripts Segoe UI does not carry, merged best-effort from the
+        // Windows fonts that do: Nirmala UI for Devanagari (Hindi) and Yu
+        // Gothic/Meiryo for Japanese. A missing font file just leaves that
+        // script as "?" -- same as before, never a crash.
+        ImFontConfig scriptMerge;
+        scriptMerge.MergeMode = true;
+        static const ImWchar kDevanagariRange[] = {0x0900, 0x097F, 0};
+        const std::string nirmala = fontBase + "Nirmala.ttf";
+        io.Fonts->AddFontFromFileTTF(nirmala.c_str(), kUiFontSize, &scriptMerge, kDevanagariRange);
+        for (const char* japaneseFont : {"YuGothM.ttc", "meiryo.ttc", "msgothic.ttc"})
+        {
+            const std::string path = fontBase + japaneseFont;
+            if (io.Fonts->AddFontFromFileTTF(path.c_str(), kUiFontSize, &scriptMerge,
+                                             io.Fonts->GetGlyphRangesJapanese()))
+            {
+                break;
+            }
+        }
     }
     // Merge the Windows-native icon font (Segoe MDL2 Assets) into the same
     // atlas so buttons can use standard system glyphs (e.g. the Settings
