@@ -139,40 +139,42 @@ void drainThreadMessages()
 // ImGui::CreateContext() and before the first frame.
 void applyThemeAndFont()
 {
-    ImGui::StyleColorsDark();
+    ImGui::StyleColorsLight();
     // Larger click targets: FramePadding sizes buttons/checkboxes (default is
     // a cramped 4x3); a touch more rounding keeps them looking intentional.
     ImGuiStyle& style = ImGui::GetStyle();
-    style.FramePadding = ImVec2(14.0f, 8.0f);
+    style.FramePadding = ImVec2(15.0f, 7.0f);
     style.FrameRounding = 5.0f;
     style.ChildRounding = 5.0f;
     style.GrabRounding = 5.0f;
     style.ScrollbarRounding = 5.0f;
     style.ItemSpacing = ImVec2(10.0f, 8.0f);
-    style.WindowPadding = ImVec2(14.0f, 12.0f);
-    // Dusk palette chosen by the user: navy #355070, plum #6d597a, rose
-    // #b56576, coral #e56b6f (plus the family's sand #eaac8b for warnings).
-    // Role mapping: navy family carries surfaces and input frames, plum
-    // carries buttons, rose is the pressed state, and coral is the single
-    // bright accent (checkmarks, active highlights). Transcript lane colors
-    // live in runUi(): You = light navy, Others = coral.
+    style.WindowPadding = ImVec2(16.0f, 14.0f);
+    // Outlined "chip" buttons and framed panels are part of the paper look.
+    style.FrameBorderSize = 1.0f;
+    style.ChildBorderSize = 1.0f;
+    // "Paper transcript" theme chosen by the user: a warm paper field
+    // (#f5f2ea) with a brighter page panel (#fdfbf6), near-black ink text,
+    // quiet outlined chip buttons, and two ink colors for the voices --
+    // court-reporter energy. Transcript lane colors live in runUi():
+    // You = blue ink #2b4a8c, Others = red ink #a8402c.
     ImVec4* colors = style.Colors;
-    colors[ImGuiCol_WindowBg] = ImVec4(0.427f, 0.349f, 0.478f, 1.00f);   // Plum #6d597a.
-    colors[ImGuiCol_ChildBg] = ImVec4(0.208f, 0.314f, 0.439f, 1.00f);    // Navy #355070 panel.
-    colors[ImGuiCol_Text] = ImVec4(0.961f, 0.949f, 0.965f, 1.00f);
-    colors[ImGuiCol_Border] = ImVec4(0.196f, 0.157f, 0.235f, 0.60f);     // Deep plum shadow.
-    colors[ImGuiCol_FrameBg] = ImVec4(0.353f, 0.290f, 0.400f, 1.00f);    // Darker plum.
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.478f, 0.400f, 0.533f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.541f, 0.459f, 0.596f, 1.00f);
-    colors[ImGuiCol_Button] = ImVec4(0.208f, 0.314f, 0.439f, 1.00f);        // Navy #355070.
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.263f, 0.392f, 0.541f, 1.00f);
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.710f, 0.396f, 0.463f, 1.00f);  // Rose #b56576.
-    colors[ImGuiCol_CheckMark] = ImVec4(0.898f, 0.420f, 0.435f, 1.00f);     // Coral #e56b6f.
-    colors[ImGuiCol_Separator] = ImVec4(0.196f, 0.157f, 0.235f, 0.65f);
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.427f, 0.349f, 0.478f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.208f, 0.314f, 0.439f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.263f, 0.392f, 0.541f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.710f, 0.396f, 0.463f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);   // Paper #f5f2ea.
+    colors[ImGuiCol_ChildBg] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);    // Page #fdfbf6.
+    colors[ImGuiCol_Text] = ImVec4(0.165f, 0.153f, 0.133f, 1.00f);       // Ink #2a2722.
+    colors[ImGuiCol_Border] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);     // Chip edge #c9c2b2.
+    colors[ImGuiCol_FrameBg] = ImVec4(0.918f, 0.898f, 0.847f, 1.00f);    // Field #eae5d8.
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.878f, 0.851f, 0.784f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.839f, 0.804f, 0.722f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.992f, 0.984f, 0.965f, 1.00f);        // Quiet chip.
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.941f, 0.922f, 0.867f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.890f, 0.863f, 0.788f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.169f, 0.290f, 0.549f, 1.00f);     // Blue ink #2b4a8c.
+    colors[ImGuiCol_Separator] = ImVec4(0.867f, 0.839f, 0.776f, 1.00f);     // Rule #ddd6c6.
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.961f, 0.949f, 0.918f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.788f, 0.761f, 0.698f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.702f, 0.671f, 0.592f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.612f, 0.576f, 0.490f, 1.00f);
     // Replace ImGui's 13px bitmap default with a larger, softer system font.
     // Segoe UI Variable (Win11) first, classic Segoe UI as fallback; if
     // neither loads (non-standard Windows install), scale the bitmap default
@@ -267,13 +269,12 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    // Lane colors are the palette's cool and warm poles: You speaks in light
-    // navy (derived from #355070), Others in coral #e56b6f. Both sit on the
-    // navy transcript panel.
-    const ImVec4 micColor(0.639f, 0.784f, 0.933f, 1.0f);  // Light navy - You.
-    const ImVec4 tabColor(0.933f, 0.510f, 0.522f, 1.0f);  // Coral - Others.
-    const ImVec4 dimColor(0.792f, 0.757f, 0.827f, 1.0f);  // Light lavender secondary text.
-    const ImVec4 errColor(1.0f, 0.4f, 0.4f, 1.0f);
+    // The two voices are the two inks of the paper theme: You writes in
+    // blue ink, Others in red ink, both on the bright page panel.
+    const ImVec4 micColor(0.169f, 0.290f, 0.549f, 1.0f);  // Blue ink #2b4a8c - You.
+    const ImVec4 tabColor(0.659f, 0.251f, 0.173f, 1.0f);  // Red ink #a8402c - Others.
+    const ImVec4 dimColor(0.541f, 0.518f, 0.467f, 1.0f);  // Faded ink #8a8477.
+    const ImVec4 errColor(0.761f, 0.169f, 0.169f, 1.0f);  // Alarm red, legible on paper.
     bool autoscroll = true;
     std::string saveStatus;        // Empty when nothing to report.
     double saveStatusUntil = 0.0;  // ImGui::GetTime() deadline; cleared after.
@@ -406,7 +407,7 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.427f, 0.349f, 0.478f, 1.0f};  // Match WindowBg plum.
+        const float clear[4] = {0.961f, 0.949f, 0.918f, 1.0f};  // Match WindowBg paper.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -452,8 +453,8 @@ bool runSetupUi(Config& cfg)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
 
-    const ImVec4 dimColor(0.792f, 0.757f, 0.827f, 1.0f);   // Light lavender secondary text.
-    const ImVec4 warnColor(0.918f, 0.675f, 0.545f, 1.0f);  // Sand #eaac8b - warnings.
+    const ImVec4 dimColor(0.541f, 0.518f, 0.467f, 1.0f);   // Faded ink #8a8477.
+    const ImVec4 warnColor(0.671f, 0.404f, 0.129f, 1.0f);  // Amber ink, legible on paper.
     // API key entry for Deepgram. Pre-filled from a previously saved key so
     // the field doubles as "view/replace" on later Settings visits. Kept
     // masked by default; the checkbox reveals it for verifying a paste.
@@ -554,7 +555,7 @@ bool runSetupUi(Config& cfg)
         ImGui::End();
 
         ImGui::Render();
-        const float clear[4] = {0.427f, 0.349f, 0.478f, 1.0f};  // Match WindowBg plum.
+        const float clear[4] = {0.961f, 0.949f, 0.918f, 1.0f};  // Match WindowBg paper.
         g_context->OMSetRenderTargets(1, &g_rtv, nullptr);
         g_context->ClearRenderTargetView(g_rtv, clear);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
