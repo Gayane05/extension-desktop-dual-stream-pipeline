@@ -34,6 +34,15 @@ public:
     {
         return dropped_[static_cast<int>(streamId)].load();
     }
+    // Seconds of audio actually fed into the STT engine for this lane --
+    // the consumer-side counterpart of droppedChunks(): together they show
+    // how much arrived work was processed vs. shed.
+    double processedAudioSec(StreamId streamId) const
+    {
+        const double samples =
+            static_cast<double>(processedSamples_[static_cast<int>(streamId)].load());
+        return samples / kSampleRateHz;
+    }
     // "streaming" only while a frame arrived within the last 2s, so the UI
     // badge doesn't lie forever once a client disconnects mid-stream.
     std::string streamState(StreamId streamId) const
@@ -65,6 +74,7 @@ private:
     SpscRing<AudioFrame> rings_[kStreamCount]{SpscRing<AudioFrame>(kRingCapacityChunks),
                                               SpscRing<AudioFrame>(kRingCapacityChunks)};
     std::atomic<uint64_t> dropped_[kStreamCount]{};
+    std::atomic<uint64_t> processedSamples_[kStreamCount]{};
     std::atomic<int64_t> lastFrameMs_[kStreamCount]{};
     std::atomic<bool> connected_{false};
     // Set before server_->stop() in Pipeline::stop() so pushStatus() — called

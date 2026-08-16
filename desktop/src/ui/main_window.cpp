@@ -45,7 +45,7 @@ bool g_hasIconFont = false;
 constexpr const char* kIconSettings = "\xEE\x9C\x93";
 
 // Main window client-area size, in pixels.
-constexpr int kMainWindowWidth = 900;
+constexpr int kMainWindowWidth = 980;
 constexpr int kMainWindowHeight = 640;
 // Setup/Settings chooser window client-area size, in pixels.
 constexpr int kSetupWindowWidth = 720;
@@ -406,11 +406,13 @@ int runUi(Pipeline& pipeline, TranscriptModel& model, ISttEngine& engine, const 
                     engine.effectiveProvider().c_str(), g_usingWarp ? " | WARP render" : "",
                     pipeline.clientConnected() ? "connected" : "waiting...", cfg.port);
         ImGui::SameLine();
-        ImGui::TextColored(dimColor, "| mic:%s tab:%s | dropped: %llu/%llu",
+        ImGui::TextColored(dimColor, "| mic:%s tab:%s | dropped: %llu/%llu | audio: %.1fs/%.1fs",
                            pipeline.streamState(StreamId::Mic).c_str(),
                            pipeline.streamState(StreamId::Tab).c_str(),
                            static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Mic)),
-                           static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Tab)));
+                           static_cast<unsigned long long>(pipeline.droppedChunks(StreamId::Tab)),
+                           pipeline.processedAudioSec(StreamId::Mic),
+                           pipeline.processedAudioSec(StreamId::Tab));
         if (ImGui::Button("Clear"))
         {
             model.clear();

@@ -89,6 +89,7 @@ void Pipeline::workerLoop(StreamId streamId)
         {
             engine_.feed(streamId, frame->samples.data(), frame->samples.size(),
                          frame->captureTsMs);
+            processedSamples_[static_cast<int>(streamId)] += frame->samples.size();
         }
         catch (const std::exception& ex)
         {
