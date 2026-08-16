@@ -215,6 +215,8 @@ mode (e.g. Deepgram without `DEEPGRAM_API_KEY`), the error is shown and the page
 so you can pick a working mode. Headless runs and explicit `--engine`/`--provider`
 flags never show the page.
 
+![Settings page](docs/settings.png)
+
 ### Chrome extension
 
 1. Open `chrome://extensions`.
