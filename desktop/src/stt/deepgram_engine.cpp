@@ -142,6 +142,32 @@ bool DeepgramEngine::start(std::string& error)
         });
         ws_[i]->start();
     }
+    // How often the idle KeepAlive is sent. Deepgram's no-data timeout is
+    // ~10 s; 5 s keeps a healthy margin without meaningful traffic.
+    constexpr int kKeepAliveIntervalMs = 5000;
+    // Sleep in short slices so stop() never waits long for the join.
+    constexpr int kKeepAliveSliceMs = 100;
+    stopKeepAlive_ = false;
+    keepAliveThread_ = std::thread([this, kKeepAliveIntervalMs, kKeepAliveSliceMs]() {
+        int elapsedMs = 0;
+        while (!stopKeepAlive_.load())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(kKeepAliveSliceMs));
+            elapsedMs += kKeepAliveSliceMs;
+            if (elapsedMs < kKeepAliveIntervalMs)
+            {
+                continue;
+            }
+            elapsedMs = 0;
+            for (auto& ws : ws_)
+            {
+                if (ws)
+                {
+                    ws->sendText(R"({"type":"KeepAlive"})");
+                }
+            }
+        }
+    });
     return true;
 }
 
@@ -158,6 +184,13 @@ void DeepgramEngine::feed(StreamId streamId, const int16_t* samples, size_t samp
 
 void DeepgramEngine::stop()
 {
+    // Stop the KeepAlive sender before tearing sockets down so it can never
+    // touch a ws_[] slot mid-reset.
+    stopKeepAlive_ = true;
+    if (keepAliveThread_.joinable())
+    {
+        keepAliveThread_.join();
+    }
     for (auto& ws : ws_)
     {
         if (ws)

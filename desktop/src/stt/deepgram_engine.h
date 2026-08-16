@@ -1,8 +1,10 @@
 // desktop/src/stt/deepgram_engine.h
 #pragma once
+#include <atomic>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 
 #include "stt/stt_engine.h"
 
@@ -63,6 +65,15 @@ private:
     // synchronization is needed. Reset on every (re)connect because the
     // stream's timeline restarts at zero.
     double connectionEpochMs_[kStreamCount] = {};
+    // Deepgram closes a connection (code 1011) after ~10 s without audio or
+    // a text message, which happens whenever the app is running but no
+    // capture is active yet. This thread sends the documented KeepAlive
+    // message on each connection every few seconds so idle connections stay
+    // open instead of churning through close/reconnect cycles.
+    // (ix::WebSocket::sendText is internally synchronized, so this thread
+    // may send concurrently with feed()'s sendBinary.)
+    std::thread keepAliveThread_;
+    std::atomic<bool> stopKeepAlive_{false};
 };
 
 }  // namespace dsp
