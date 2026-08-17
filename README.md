@@ -224,7 +224,9 @@ over a recording.
 speech-to-text should run — local sherpa on GPU (CUDA), local sherpa on CPU, local
 Parakeet, or the Deepgram cloud API. The page shows the currently selected mode at the
 top. The choice is saved to `settings.json` next to the exe and applied automatically on
-every later start. An **Ask every startup** checkbox on the page controls what happens
+every later start. A Deepgram API key entered here is stored in that same file
+**encrypted with Windows DPAPI** — never in plaintext, and unreadable off-machine or by
+other user accounts. An **Ask every startup** checkbox on the page controls what happens
 next: when checked, the page opens at every launch; when unchecked, it opens only via
 the **Settings** button (gear icon) — as an overlay on the main window, so the live
 transcript stays visible behind it. Picking a mode swaps the engine in place: the window
