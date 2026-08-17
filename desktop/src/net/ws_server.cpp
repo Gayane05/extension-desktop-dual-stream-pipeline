@@ -22,6 +22,9 @@ WsServer::~WsServer()
 bool WsServer::start(std::string& error)
 {
     ix::initNetSystem();
+    // Loopback-only, plain ws:// (no TLS): fine while the extension and this
+    // app share one machine; see the security note in ws_server.h for what a
+    // future remote/encrypted deployment would change here.
     server_ = std::make_unique<ix::WebSocketServer>(port_, "127.0.0.1");
     // Per-connection state machine, keyed by ConnectionState::getId():
     // Open -> helloSeen_[id]=false (not yet authorized) -> a valid "hello"

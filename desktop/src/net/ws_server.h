@@ -3,6 +3,14 @@
 // The localhost WebSocket endpoint the extension (extension/offscreen.js)
 // connects to. Wraps ixwebsocket, parses the wire protocol (core/protocol.h)
 // on each message, and hands parsed frames/events to Pipeline via Callbacks.
+//
+// SECURITY MODEL: the server binds to 127.0.0.1 only and speaks plain,
+// unencrypted ws:// -- acceptable today because audio never leaves the
+// machine (loopback traffic is not observable off-host). If a REMOTE server
+// is ever supported, this is the seam to upgrade: bind a routable address,
+// switch to wss:// (ixwebsocket supports TLS) with a real certificate, and
+// add client authentication -- the hello handshake below is a client-count
+// gate, not an auth mechanism.
 // Single-client rule: only one connection may be "active" (past hello) at a
 // time, since the AudioFrame rings downstream require a single producer per
 // stream (see activeId_/rejected_ below). All Callbacks fire on whichever

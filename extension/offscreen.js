@@ -93,6 +93,9 @@ async function start(tabStreamId, port) {
   // in-flight start() call, so only the most recent start()/stop() "wins".
   const myGen = ++startGeneration;
   active = true;
+  // Plain ws:// to loopback: audio never leaves this machine, so transport
+  // encryption adds nothing today. A future remote desktop app would need
+  // wss:// (TLS) here and authentication on the server side.
   wsUrl = `ws://127.0.0.1:${port}`;
 
   let micStream;

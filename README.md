@@ -176,7 +176,9 @@ The app runs **both ways** — pick whichever suits you:
   (see [Deepgram backend](#deepgram-backend)) — pass `--engine sherpa` for the fully
   local, no-account path.
 
-Either way a window opens, listening on `ws://127.0.0.1:8765`. The status bar shows the
+Either way a window opens, listening on `ws://127.0.0.1:8765` (localhost only,
+unencrypted — see the security note under [Design decisions](#design-decisions)). The
+status bar shows the
 active engine/provider, connection state, per-stream (mic/tab) status, dropped-chunk
 counters, and seconds of audio processed per lane. Only one extension client is accepted
 at a time — a second connection's `hello` is rejected with an error and closed, so the
@@ -424,6 +426,14 @@ to watch the transcript render live instead of reading JSONL from stdout.
 - **One WebSocket connection with tagged binary frames, not two connections.** A single
   handshake and lifecycle to manage; per-stream ordering is already guaranteed by TCP;
   demuxing is a single tag byte at offset 0 of each binary frame.
+- **Localhost only, no transport encryption — by design, for now.** The server binds to
+  `127.0.0.1` exclusively and speaks plain `ws://`: the extension and the desktop app run
+  on the same machine, so audio never touches a network interface and loopback traffic is
+  not observable from other hosts. If a **remote** desktop app were supported later, the
+  upgrade path is contained in one seam (`desktop/src/net/ws_server.cpp` and the
+  extension's connect URL): bind a routable address, switch to `wss://` — ixwebsocket
+  already supports TLS — with a real certificate, and add client authentication (the
+  current `hello` handshake limits the client *count*; it does not authenticate anyone).
 
 ## Troubleshooting
 
