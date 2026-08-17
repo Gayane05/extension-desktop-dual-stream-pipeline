@@ -392,8 +392,14 @@ The app is built to degrade loudly and recover, never to start half-alive or fre
 - **Deepgram connection failures** (wrong API key, no internet): the connections open
   asynchronously after startup, so these surface at runtime — in red under the status
   bar (e.g. `deepgram[mic] connection failed (http 401): ... -- check the API key in
-  Settings`) and on the console, while automatic reconnection keeps retrying in the
-  background. A *missing* key is caught immediately at startup instead.
+  Settings`) and on the console. A *missing* key is caught immediately at startup
+  instead. What happens next is deliberate: reconnection retries automatically with
+  backoff (a transient network blip self-heals and the red line clears on its own), but
+  the app never switches engines on its own — an engine change alters transcription
+  quality and is yours to decide. Recovery is one click away in the Settings overlay:
+  paste a corrected key and click **Deepgram - cloud**, or click a **Local** card to
+  continue offline. Either way the swap happens in place — the window stays open, the
+  transcript is kept, and the extension reconnects within a second.
 - **Headless runs** never show dialogs: engine failure exits with code 3, server failure
   with code 4.
 - **An engine that runs slower than real time** sheds the newest audio instead of
