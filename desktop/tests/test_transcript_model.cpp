@@ -74,18 +74,18 @@ TEST(TranscriptModel, ToTextFormatsFinalsOnlyRelativeToSessionStart)
     model.apply({StreamId::Tab, "hi yourself", true, 5004000.0});
     model.apply({StreamId::Mic, "pending interim", false, 5005000.0});  // Must NOT appear.
     EXPECT_EQ(model.toText(),
-              "[00:00] You: hello there\n"
-              "[00:04] Others: hi yourself\n");
+              "[00:00.000] You: hello there\n"
+              "[00:04.000] Others: hi yourself\n");
 }
 
 TEST(TranscriptModel, FormatRelativeTimestampRollsToHours)
 {
-    EXPECT_EQ(formatRelativeTimestamp(1000.0, 1000.0), "00:00");
-    EXPECT_EQ(formatRelativeTimestamp(193000.0, 1000.0), "03:12");
+    EXPECT_EQ(formatRelativeTimestamp(1000.0, 1000.0), "00:00.000");
+    EXPECT_EQ(formatRelativeTimestamp(193480.0, 1000.0), "03:12.480");
     // 1h 2m 3s past the baseline switches to the h:mm:ss form.
-    EXPECT_EQ(formatRelativeTimestamp(3723000.0, 0.0), "1:02:03");
+    EXPECT_EQ(formatRelativeTimestamp(3723450.0, 0.0), "1:02:03.450");
     // A timestamp before the baseline clamps to zero instead of underflowing.
-    EXPECT_EQ(formatRelativeTimestamp(500.0, 1000.0), "00:00");
+    EXPECT_EQ(formatRelativeTimestamp(500.0, 1000.0), "00:00.000");
 }
 
 TEST(TranscriptModel, BaselineComesFromEarliestEventIncludingInterims)

@@ -79,17 +79,20 @@ double TranscriptModel::baseTsMs() const
 std::string formatRelativeTimestamp(double tsMs, double baseTsMs)
 {
     const double deltaMs = tsMs - baseTsMs;
-    const auto totalSec = deltaMs > 0.0 ? static_cast<long long>(deltaMs / 1000.0) : 0;
+    const auto totalMs = deltaMs > 0.0 ? static_cast<long long>(deltaMs) : 0;
+    const long long totalSec = totalMs / 1000;
+    const long long millis = totalMs % 1000;
     const long long hours = totalSec / 3600;
-    char buffer[24];
+    char buffer[32];
     if (hours > 0)
     {
-        std::snprintf(buffer, sizeof(buffer), "%lld:%02lld:%02lld", hours, (totalSec / 60) % 60,
-                      totalSec % 60);
+        std::snprintf(buffer, sizeof(buffer), "%lld:%02lld:%02lld.%03lld", hours,
+                      (totalSec / 60) % 60, totalSec % 60, millis);
     }
     else
     {
-        std::snprintf(buffer, sizeof(buffer), "%02lld:%02lld", totalSec / 60, totalSec % 60);
+        std::snprintf(buffer, sizeof(buffer), "%02lld:%02lld.%03lld", totalSec / 60, totalSec % 60,
+                      millis);
     }
     return buffer;
 }

@@ -31,8 +31,9 @@ struct Utterance
     double tsMs;
 };
 
-// Formats a capture timestamp relative to a session baseline as "mm:ss",
-// growing to "h:mm:ss" past an hour ("03:12", "1:02:03"). All user-facing
+// Formats a capture timestamp relative to a session baseline as
+// "mm:ss.mmm", growing to "h:mm:ss.mmm" past an hour ("03:12.480",
+// "1:02:03.450"). All user-facing
 // timestamps are meeting-relative -- counted from the session's first words
 // -- because capture clocks differ by audio source (the extension sends epoch
 // time, test feeders send a monotonic clock) and only deltas are meaningful

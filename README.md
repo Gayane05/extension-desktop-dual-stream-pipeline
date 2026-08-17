@@ -214,8 +214,8 @@ Command-line examples (run from `desktop/`):
 .\build\Release\transcriber.exe --help                             # full flag reference
 ```
 
-**Saving.** Transcript lines carry meeting-relative timestamps (`[03:12]`, counted from
-the session's first words). **Save transcript** opens the standard Save As dialog and
+**Saving.** Transcript lines carry meeting-relative timestamps with millisecond
+precision (`[03:12.480]`, counted from the session's first words). **Save transcript** opens the standard Save As dialog and
 exports the chosen format: plain text (`.txt`), SubRip subtitles (`.srt`), or WebVTT
 (`.vtt`) — the subtitle formats turn a transcribed meeting into captions you can replay
 over a recording.
