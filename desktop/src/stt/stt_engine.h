@@ -42,6 +42,13 @@ public:
     virtual void stop() = 0;
     virtual std::string name() const = 0;
     virtual std::string effectiveProvider() const = 0;  // "cpu" after fallback.
+    // Health signal for failures that happen AFTER start() succeeded:
+    // non-empty while the engine is up but currently unable to deliver
+    // results (e.g. Deepgram's async connections rejected with a bad key),
+    // empty when healthy. The UI polls this to surface such failures in the
+    // status bar. Local engines have no post-start failure mode and keep
+    // the default. Must be safe to call from any thread.
+    virtual std::string runtimeError() const { return ""; }
 };
 
 }  // namespace dsp

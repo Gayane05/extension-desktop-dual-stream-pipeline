@@ -27,9 +27,10 @@ runtime and remembers the choice.
 6. [GPU acceleration](#gpu-acceleration)
 7. [Parakeet engine](#parakeet-engine-highest-local-accuracy)
 8. [Deepgram backend](#deepgram-backend)
-9. [Testing & demo without Chrome](#testing--demo-without-chrome)
-10. [Design decisions](#design-decisions)
-11. [Troubleshooting](#troubleshooting)
+9. [When an engine fails](#when-an-engine-fails)
+10. [Testing & demo without Chrome](#testing--demo-without-chrome)
+11. [Design decisions](#design-decisions)
+12. [Troubleshooting](#troubleshooting)
 
 ## Architecture
 
@@ -371,6 +372,33 @@ mid-sentence. Pin a single language with `--language en` (any BCP-47 code) for s
 better accuracy when you know the meeting is monolingual. Deepgram's true
 `detect_language` parameter exists only for its pre-recorded API, not streaming —
 `multi` is the streaming equivalent.
+
+## When an engine fails
+
+The app is built to degrade loudly and recover, never to start half-alive or freeze:
+
+- **At startup** (e.g. the saved mode is Parakeet but the model was deleted): the exact
+  reason is printed to the console **and** shown in a message box (so double-click
+  launches can't miss it — model errors include the exact `download-model.ps1` command),
+  then the Settings page opens to pick a working mode. Closing it without choosing exits
+  cleanly.
+- **Switching modes mid-session:** if the new engine fails to start, the window stays
+  open with the transcript intact, the status bar shows the error in red, and the
+  Settings modal reopens. The old engine is already stopped at that point — a failed
+  switch asks you to choose again rather than silently reverting.
+- **GPU unavailable is not a failure:** `--provider cuda` without the CUDA/cuDNN runtime
+  downgrades to CPU automatically; the status bar reading `sherpa (cpu)` is the visible
+  notice.
+- **Deepgram connection failures** (wrong API key, no internet): the connections open
+  asynchronously after startup, so these surface at runtime — in red under the status
+  bar (e.g. `deepgram[mic] connection failed (http 401): ... -- check the API key in
+  Settings`) and on the console, while automatic reconnection keeps retrying in the
+  background. A *missing* key is caught immediately at startup instead.
+- **Headless runs** never show dialogs: engine failure exits with code 3, server failure
+  with code 4.
+- **An engine that runs slower than real time** sheds the newest audio instead of
+  stalling: the `dropped:` counter in the status bar climbs and a warning is logged once
+  per lane.
 
 ## Testing & demo without Chrome
 

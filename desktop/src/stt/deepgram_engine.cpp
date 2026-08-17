@@ -103,6 +103,39 @@ std::string buildDeepgramListenUrl(const std::string& language)
     return url;
 }
 
+std::string formatDeepgramConnectionError(const char* streamLabel, const std::string& reason,
+                                          int httpStatus)
+{
+    std::string message = "deepgram[" + std::string(streamLabel) + "] connection failed";
+    if (httpStatus > 0)
+    {
+        message += " (http " + std::to_string(httpStatus) + ")";
+    }
+    if (!reason.empty())
+    {
+        message += ": " + reason;
+    }
+    // 401/403 are the failures the user can actually fix from the app.
+    if (httpStatus == 401 || httpStatus == 403)
+    {
+        message += " -- check the API key in Settings";
+    }
+    return message;
+}
+
+std::string DeepgramEngine::runtimeError() const
+{
+    std::lock_guard lock(connectionErrorMu_);
+    for (const std::string& laneError : connectionError_)
+    {
+        if (!laneError.empty())
+        {
+            return laneError;
+        }
+    }
+    return "";
+}
+
 bool DeepgramEngine::start(std::string& error)
 {
     if (opts_.deepgramKey.empty())
@@ -136,10 +169,17 @@ bool DeepgramEngine::start(std::string& error)
             else if (msg->type == ix::WebSocketMessageType::Error)
             {
                 // Surface connection/TLS/HTTP failures instead of dying silently;
-                // automatic reconnection keeps retrying in the background.
+                // automatic reconnection keeps retrying in the background. The
+                // formatted message also feeds runtimeError() so the status
+                // bar shows it -- start() succeeded before these async
+                // connections resolved, so this is the only failure channel.
                 std::fprintf(stderr, "deepgram[%s] connection error: %s (http %d)\n",
                              streamName(streamId), msg->errorInfo.reason.c_str(),
                              msg->errorInfo.http_status);
+                std::lock_guard lock(connectionErrorMu_);
+                connectionError_[streamIndex] =
+                    formatDeepgramConnectionError(streamName(streamId), msg->errorInfo.reason,
+                                                  static_cast<int>(msg->errorInfo.http_status));
             }
             else if (msg->type == ix::WebSocketMessageType::Open)
             {
@@ -147,6 +187,8 @@ bool DeepgramEngine::start(std::string& error)
                 // anchor them to wall-clock here.
                 connectionEpochMs_[streamIndex] = nowMs();
                 std::fprintf(stderr, "deepgram[%s] connected\n", streamName(streamId));
+                std::lock_guard lock(connectionErrorMu_);
+                connectionError_[streamIndex].clear();  // Healthy again.
             }
             else if (msg->type == ix::WebSocketMessageType::Close)
             {

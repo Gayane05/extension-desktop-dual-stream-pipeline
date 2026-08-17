@@ -76,3 +76,16 @@ TEST(DeepgramUrl, MultiAddsEndpointingAndSpecificLanguageDoesNot)
     EXPECT_EQ(englishUrl.find("endpointing"), std::string::npos);
     EXPECT_NE(englishUrl.find("sample_rate=16000"), std::string::npos);
 }
+
+TEST(DeepgramUrl, ConnectionErrorMessageIsActionableForBadKeys)
+{
+    const std::string unauthorized = formatDeepgramConnectionError("mic", "Unauthorized", 401);
+    EXPECT_NE(unauthorized.find("deepgram[mic]"), std::string::npos);
+    EXPECT_NE(unauthorized.find("http 401"), std::string::npos);
+    EXPECT_NE(unauthorized.find("check the API key"), std::string::npos);
+    // Network-level failures (no HTTP status) stay factual, no key hint.
+    const std::string offline = formatDeepgramConnectionError("tab", "Connect error", 0);
+    EXPECT_EQ(offline.find("http"), std::string::npos);
+    EXPECT_EQ(offline.find("API key"), std::string::npos);
+    EXPECT_NE(offline.find("Connect error"), std::string::npos);
+}

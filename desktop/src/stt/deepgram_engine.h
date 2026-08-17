@@ -2,6 +2,7 @@
 #pragma once
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
@@ -34,6 +35,12 @@ std::optional<TranscriptEvent> parseDeepgramMessage(StreamId streamId, const std
 // unit-testable without a connection.
 std::string buildDeepgramListenUrl(const std::string& language);
 
+// Formats one connection failure for the UI's status bar, appending an
+// actionable hint for the statuses a user can fix (401/403 = bad key).
+// Free function so the wording is unit-testable without a connection.
+std::string formatDeepgramConnectionError(const char* streamLabel, const std::string& reason,
+                                          int httpStatus);
+
 // Cloud STT via Deepgram's streaming API. Implements ISttEngine; unlike
 // SherpaEngine there is no local model or shared decode state -- each stream
 // gets its own independent WS connection to Deepgram (ws_[0]/ws_[1]), so
@@ -61,6 +68,10 @@ public:
     void stop() override;
     std::string name() const override { return "deepgram"; }
     std::string effectiveProvider() const override { return "cloud"; }
+    // Latest per-lane connection failure (bad key, no network, ...); empty
+    // once both lanes are connected. start() succeeds before the async
+    // connections resolve, so this is how post-start failures reach the UI.
+    std::string runtimeError() const override;
 
 private:
     EngineOptions opts_;
@@ -81,6 +92,11 @@ private:
     // may send concurrently with feed()'s sendBinary.)
     std::thread keepAliveThread_;
     std::atomic<bool> stopKeepAlive_{false};
+    // Per-lane connection-failure text, written by ixwebsocket's connection
+    // threads (Error/Open events) and read by the UI thread via
+    // runtimeError(); hence the mutex.
+    mutable std::mutex connectionErrorMu_;
+    std::string connectionError_[kStreamCount];
 };
 
 }  // namespace dsp

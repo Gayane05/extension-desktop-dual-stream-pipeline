@@ -733,6 +733,14 @@ int runUi(std::unique_ptr<ISttEngine> engine, std::unique_ptr<Pipeline> pipeline
                 static_cast<unsigned long long>(pipeline->droppedChunks(StreamId::Tab)),
                 pipeline->processedAudioSec(StreamId::Mic),
                 pipeline->processedAudioSec(StreamId::Tab));
+            // Post-start failures (e.g. Deepgram rejecting the key on its
+            // async connections) would otherwise only reach the console;
+            // surface them right under the status line.
+            const std::string engineRuntimeError = engine->runtimeError();
+            if (!engineRuntimeError.empty())
+            {
+                drawColorWrapped(errColor, engineRuntimeError.c_str());
+            }
         }
         else if (swapping)
         {
