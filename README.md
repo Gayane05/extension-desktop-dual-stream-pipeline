@@ -139,7 +139,7 @@ ctest --test-dir build --output-on-failure -C Release
 cd ..
 ```
 
-Expect `100% tests passed` (66 tests). The suite covers the wire protocol, the SPSC ring
+Expect `100% tests passed` (67 tests). The suite covers the wire protocol, the SPSC ring
 buffer, the transcript model, config parsing, the WS server (including single-client
 enforcement), the sherpa-onnx link/engine, Deepgram JSON parsing, WAV reading, and transcript
 save — no model or network access is required for `ctest` itself.
@@ -300,6 +300,13 @@ cd desktop
 .\build\Release\transcriber.exe --engine sherpa --provider cuda
 cd ..
 ```
+
+At runtime the GPU path needs three DLLs findable on `PATH`: `cudart64_12.dll` and
+`cublas64_12.dll` (from the **CUDA Toolkit 12.x**) and `cudnn64_9.dll` (from **cuDNN 9**,
+a separate download — install it and add its `bin` directory to `PATH`). The app probes
+for exactly these at startup; if any is missing it says so on the console and falls back
+to CPU rather than crashing, so a "GPU" run that shows `sherpa (cpu)` in the status bar
+means one of them was not found.
 
 `--provider tensorrt` is also accepted and documented here as **experimental** — it
 requires a TensorRT-enabled onnxruntime build, which this recipe does not currently produce;
