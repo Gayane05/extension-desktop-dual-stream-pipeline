@@ -339,25 +339,31 @@ gear also offers this mode as "Local (Parakeet)".
 ## Deepgram backend
 
 The Deepgram engine talks to Deepgram's cloud streaming API (`api.deepgram.com/v1/listen`)
-behind the same `ISttEngine` interface as sherpa-onnx, requiring no local model. Set your
-API key once per shell session (persists across future sessions via `setx`, requires a
-**new** shell to take effect):
+behind the same `ISttEngine` interface as sherpa-onnx, requiring no local model. Provide
+your API key one of these ways, in order of preference:
+
+**Recommended — the Settings page.** Paste the key into the field on the Settings page
+(it opens on first launch, or via the gear icon). It is stored DPAPI-encrypted in
+`settings.json` next to the exe (gitignored, unreadable off-machine), never enters the
+environment, and takes precedence over the environment variable. The key stays scoped to
+this app — other programs you run don't inherit it.
+
+**For scripted / headless runs — a session-scoped environment variable:**
 
 ```powershell
-setx DEEPGRAM_API_KEY "your-key-here"
-```
-
-Then run:
-
-```powershell
+$env:DEEPGRAM_API_KEY = "your-key-here"   # dies with this shell; inherited only by its children
 cd desktop
 .\build\Release\transcriber.exe --engine deepgram
 cd ..
 ```
 
-Alternatively, paste the key into the field on the Settings screen (gear icon) — it is
-stored locally next to the exe (that file is gitignored) and takes precedence over the
-environment variable. Never commit your API key; it is never read from a CLI flag.
+**Avoid `setx DEEPGRAM_API_KEY ...`** unless you really want persistence: it writes the
+key in plaintext to the user registry and every process you launch from then on — any
+program, from any source — inherits and can read it. If you have used it, remove it with
+`REG delete HKCU\Environment /F /V DEEPGRAM_API_KEY` (new shells after that are clean).
+
+Never commit your API key; it is never read from a CLI flag (flags are visible in
+process listings).
 
 **Language.** Deepgram runs on nova-3 with `language=multi` by default: the spoken
 language is recognized automatically (10+ languages), including code-switching
